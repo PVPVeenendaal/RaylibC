@@ -9,6 +9,6 @@ Windows:
 
 Add libraylib.a file (c:\raylib\raylib\src\libraylib.a) into lib folder, then run the following command:
 Debug:
-gcc chess.c -o chess.exe -O1 -Wall -std=c++17 -Wno-missing-braces -L ./lib/ -lraylib -lopengl32 -lgdi32 -lwinmm
+gcc chess.c -o chess.exe -O1 -Wall -std=c17 -Wno-missing-braces -L ./lib/ -lraylib -lopengl32 -lgdi32 -lwinmm
 Release:
-gcc chess.c -o winchess.exe -O2 -DNDEBUG -std=c++17 -Wno-missing-braces -L ./lib/ -lraylib -lopengl32 -lgdi32 -lwinmm
+gcc chess.c -o winchess.exe -O2 -DNDEBUG -std=c17 -Wno-missing-braces -L ./lib/ -lraylib -lopengl32 -lgdi32 -lwinmm

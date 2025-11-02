@@ -3869,7 +3869,7 @@ static inline int negamax(int alpha, int beta, int depth)
     int hash_flag = hash_flag_alpha;
 
     // if position repetition occurs
-    if (ply && is_repetition() || fifty >= 100)
+    if ((ply && is_repetition()) || fifty >= 100)
         // return draw score
         return 0;
 

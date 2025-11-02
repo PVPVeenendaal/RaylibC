@@ -7315,7 +7315,7 @@ static inline int lb_negamax(int alpha, int beta, int depth)
     int hash_flag = hash_flag_alpha;
 
     // if position repetition occurs
-    if (lb_ply && lb_is_repetition() || lb_fifty >= 100)
+    if ((lb_ply && lb_is_repetition()) || lb_fifty >= 100)
         // return draw score
         return 0;
 
@@ -7607,7 +7607,7 @@ static inline int rb_negamax(int alpha, int beta, int depth)
     int hash_flag = hash_flag_alpha;
 
     // if position repetition occurs
-    if (rb_ply && rb_is_repetition() || rb_fifty >= 100)
+    if ((rb_ply && rb_is_repetition()) || rb_fifty >= 100)
         // return draw score
         return 0;
 
@@ -8894,7 +8894,7 @@ void draw_board(int side)
             int piece_col = dcol + x * SQUARE_SIZE;
             int show_options = (!side) ? (lb_human_player == lb_side || lb_human_player == both) && !lb_thread_busy
                                        : (rb_human_player == rb_side || rb_human_player == both) && !rb_thread_busy;
-            int pbit, sbit, cbit, piece, incheck;
+            int pbit, sbit, cbit, piece;
             if (!side)
             {
                 pbit = show_options && get_bit(lb_move_options[0], sqr) ? 1 : 0;
