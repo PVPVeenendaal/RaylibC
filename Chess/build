@@ -1,14 +1,14 @@
 Mac:
 
 Debug:
-eval cc main.c -g -O0 -framework IOKit -framework Cocoa -framework OpenGL $(pkg-config --libs --cflags raylib) -o chess.exe
+eval cc chess.c -g -O0 -framework IOKit -framework Cocoa -framework OpenGL $(pkg-config --libs --cflags raylib) -o chess.exe
 Release:
-eval cc main.c -O2 -DNDEBUG -framework IOKit -framework Cocoa -framework OpenGL $(pkg-config --libs --cflags raylib) -o macchess.exe
+eval cc chess.c -O2 -DNDEBUG -framework IOKit -framework Cocoa -framework OpenGL $(pkg-config --libs --cflags raylib) -o macchess.exe
 
 Windows: 
 
 Add libraylib.a file (c:\raylib\raylib\src\libraylib.a) into lib folder, then run the following command:
 Debug:
-gcc main.c -o chess.exe -O1 -Wall -std=c++17 -Wno-missing-braces -L ./lib/ -lraylib -lopengl32 -lgdi32 -lwinmm
+gcc chess.c -o chess.exe -O1 -Wall -std=c++17 -Wno-missing-braces -L ./lib/ -lraylib -lopengl32 -lgdi32 -lwinmm
 Release:
-gcc main.c -o winchess.exe -O2 -DNDEBUG -std=c++17 -Wno-missing-braces -L ./lib/ -lraylib -lopengl32 -lgdi32 -lwinmm
+gcc chess.c -o winchess.exe -O2 -DNDEBUG -std=c++17 -Wno-missing-braces -L ./lib/ -lraylib -lopengl32 -lgdi32 -lwinmm

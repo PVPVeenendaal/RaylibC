@@ -1,0 +1,21 @@
+{
+	"folders": [
+		{
+			"path": "."
+		}
+	],
+	"settings": {
+		"files.associations": {
+			"raylib.h": "c",
+			"math.h": "c",
+			"blocks.h": "c",
+			"stdio.h": "c",
+			"stdlib.h": "c",
+			"string.h": "c",
+			"*.m": "c",
+			"pthread.h" : "c"
+		},
+		"git.autoRepositoryDetection": false,
+		"git.enabled": true
+	}
+}

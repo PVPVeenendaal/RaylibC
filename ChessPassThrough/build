@@ -1,0 +1,14 @@
+Mac:
+
+Debug:
+eval cc cpt.c -g -O0 -framework IOKit -framework Cocoa -framework OpenGL $(pkg-config --libs --cflags raylib) -o cpt.exe
+Release:
+eval cc cpt.c -O2 -DNDEBUG -framework IOKit -framework Cocoa -framework OpenGL $(pkg-config --libs --cflags raylib) -o maccpt.exe
+
+Windows: 
+
+Add libraylib.a file (c:\raylib\raylib\src\libraylib.a) into lib folder, then run the following command:
+Debug:
+gcc cpt.c -o cpt.exe -O1 -Wall -std=c++17 -Wno-missing-braces -L ./lib/ -lraylib -lopengl32 -lgdi32 -lwinmm
+Release:
+gcc cpt.c -o wincpt.exe -O2 -DNDEBUG -std=c++17 -Wno-missing-braces -L ./lib/ -lraylib -lopengl32 -lgdi32 -lwinmm
