@@ -8,7 +8,7 @@
         "name": "(lldb) Launch",
         "type": "cppdbg",
         "request": "launch",
-        "program": "${workspaceFolder}/chess.exe",
+        "program": "${workspaceFolder}/debchess",
         "args": [],
         "stopAtEntry": false,
         "cwd": "${fileDirname}",
