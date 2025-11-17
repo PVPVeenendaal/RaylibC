@@ -32,13 +32,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#ifdef WIN64
-#include <windows.h>
-#else
 #include <sys/time.h>
-#endif
 #include <pthread.h>
-
 ///< ADD>
 
 // define min max
@@ -602,13 +597,9 @@ int stopped = 0;
 // get time in milliseconds
 int get_time_ms()
 {
-#ifdef WIN64
-    return GetTickCount();
-#else
     struct timeval time_value;
     gettimeofday(&time_value, NULL);
     return time_value.tv_sec * 1000 + time_value.tv_usec / 1000;
-#endif
 }
 
 // a bridge function to interact between search and GUI input
@@ -894,7 +885,7 @@ void print_board()
             }
 
 // print different piece set depending on OS
-#ifdef WIN64
+#ifdef _WIN64
             printf(" %c", (piece == -1) ? '.' : ascii_pieces[piece]);
 #else
             printf(" %s", (piece == -1) ? "." : unicode_pieces[piece]);
@@ -1840,7 +1831,7 @@ void print_move_list(moves_t *move_list)
         // init move
         int move = move_list->moves[move_count];
 
-#ifdef WIN64
+#ifdef _WIN64
         // print move
         printf("     %s%s%c   %c         %d         %d         %d         %d\n", square_to_coordinates[get_move_source(move)],
                square_to_coordinates[get_move_target(move)],
@@ -5049,39 +5040,19 @@ int main()
         draw_board();
 
         // Draw players
-        if (human_player == white || human_player == both)
-        {
-            DrawTexture(
-                human_image,
-                brd_col + BOARD_SIZE,
-                brd_row + BOARD_SIZE - SQUARE_SIZE,
-                RAYWHITE);
-        }
-        if (human_player == black || human_player == both)
-        {
-            DrawTexture(
-                human_image,
-                brd_col + BOARD_SIZE,
-                brd_row,
-                RAYWHITE);
-        }
-        if (ai_player == white || ai_player == both)
-        {
-            DrawTexture(
-                ai_image,
-                brd_col + BOARD_SIZE,
-                brd_row + BOARD_SIZE - SQUARE_SIZE,
-                RAYWHITE);
-        }
-        if (ai_player == black || ai_player == both)
-        {
-            DrawTexture(
-                ai_image,
-                brd_col + BOARD_SIZE,
-                brd_row,
-                RAYWHITE);
-        }
-
+        // top
+        DrawTexture(
+            human_player == both ? human_image : ai_image,
+            brd_col + BOARD_SIZE,
+            brd_row,
+            RAYWHITE);
+        // bottom
+        DrawTexture(
+            ai_player == both ? ai_image : human_image,
+            brd_col + BOARD_SIZE,
+            brd_row + BOARD_SIZE - SQUARE_SIZE,
+            RAYWHITE);
+        
         int clock_col = brd_col + BOARD_SIZE - SQUARE_SIZE * 2;
         int clock_row, xclock_row;
         if (side2move == white)
