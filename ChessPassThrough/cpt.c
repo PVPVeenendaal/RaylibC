@@ -38,11 +38,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#ifdef WIN64
-#include <windows.h>
-#else
 #include <sys/time.h>
-#endif
 #include <pthread.h>
 
 ///<ADD>
@@ -797,25 +793,17 @@ int rb_stopped = 0;
 // get time in milliseconds
 int lb_get_time_ms()
 {
-#ifdef WIN64
-    return GetTickCount();
-#else
     struct timeval time_value;
     gettimeofday(&time_value, NULL);
     return time_value.tv_sec * 1000 + time_value.tv_usec / 1000;
-#endif
 }
 
 // get time in milliseconds
 int rb_get_time_ms()
 {
-#ifdef WIN64
-    return GetTickCount();
-#else
     struct timeval time_value;
     gettimeofday(&time_value, NULL);
     return time_value.tv_sec * 1000 + time_value.tv_usec / 1000;
-#endif
 }
 
 // a bridge function to interact between search and GUI input
@@ -1301,7 +1289,7 @@ void lb_print_board()
             }
 
 // print different piece set depending on OS
-#ifdef WIN64
+#ifdef _WIN64
             printf(" %c", (piece == -1) ? '.' : lb_ascii_pieces[piece]);
 #else
             printf(" %s", (piece == -1) ? "." : lb_unicode_pieces[piece]);
@@ -1367,7 +1355,7 @@ void rb_print_board()
             }
 
 // print different piece set depending on OS
-#ifdef WIN64
+#ifdef _WIN64
             printf(" %c", (piece == -1) ? '.' : rb_ascii_pieces[piece]);
 #else
             printf(" %s", (piece == -1) ? "." : rb_unicode_pieces[piece]);
@@ -3151,7 +3139,7 @@ void lb_print_move_list(moves_t *move_list)
         // init move
         int move = move_list->moves[move_count];
 
-#ifdef WIN64
+#ifdef _WIN64
         // print move
         printf("     %s%s%c   %c         %d         %d         %d         %d\n", lb_square_to_coordinates[get_move_source(move)],
                lb_square_to_coordinates[get_move_target(move)],
@@ -3197,7 +3185,7 @@ void rb_print_move_list(moves_t *move_list)
         // init move
         int move = move_list->moves[move_count];
 
-#ifdef WIN64
+#ifdef _WIN64
         // print move
         printf("     %s%s%c   %c         %d         %d         %d         %d\n", rb_square_to_coordinates[get_move_source(move)],
                rb_square_to_coordinates[get_move_target(move)],
@@ -9356,7 +9344,7 @@ void process_mouseclick(int side, int x, int y)
                 if (get_bit(lb_cap_piece_options[lb_capselectpiece], sqr))
                 {
                     lb_selectsquare = sqr;
-#ifdef WIN64
+#ifdef _WIN64
 #ifndef NDEBUG // print only in debug mode
                     printf("\nlb\n capselectpiece %c\n", lb_ascii_pieces[lb_capselectpiece]);
 #endif
@@ -9485,7 +9473,7 @@ void process_mouseclick(int side, int x, int y)
                 if (get_bit(rb_cap_piece_options[rb_capselectpiece], sqr))
                 {
                     rb_selectsquare = sqr;
-#ifdef WIN64
+#ifdef _WIN64
 #ifndef NDEBUG // print only in debug mode
                     printf("\nrb\n capselectpiece %c\n", rb_ascii_pieces[rb_capselectpiece]);
 #endif
@@ -9810,72 +9798,32 @@ int main()
 
             // Draw players
             // left board
-            if (lb_human_player == white || lb_human_player == both)
-            {
-                DrawTexture(
-                    human_image,
-                    lb_brd_col + BOARD_SIZE,
-                    lb_brd_row,
-                    RAYWHITE);
-            }
-            if (lb_human_player == black || lb_human_player == both)
-            {
-                DrawTexture(
-                    human_image,
-                    lb_brd_col + BOARD_SIZE,
-                    lb_brd_row + BOARD_SIZE - SQUARE_SIZE,
-                    RAYWHITE);
-            }
-            if (lb_ai_player == white || lb_ai_player == both)
-            {
-                DrawTexture(
-                    ai_image,
-                    lb_brd_col + BOARD_SIZE,
-                    lb_brd_row,
-                    RAYWHITE);
-            }
-            if (lb_ai_player == black || lb_ai_player == both)
-            {
-                DrawTexture(
-                    ai_image,
-                    lb_brd_col + BOARD_SIZE,
-                    lb_brd_row + BOARD_SIZE - SQUARE_SIZE,
-                    RAYWHITE);
-            }
+            // bottom
+            DrawTexture(
+                lb_ai_player == both ? ai_image : human_image,
+                lb_brd_col + BOARD_SIZE,
+                lb_brd_row + BOARD_SIZE - SQUARE_SIZE,
+                RAYWHITE) ;
+            // top
+            DrawTexture(
+                lb_human_player == both ? human_image : ai_image,
+                lb_brd_col + BOARD_SIZE,
+                lb_brd_row,
+                RAYWHITE);
             // right board
-            if (rb_human_player == black || rb_human_player == both)
-            {
-                DrawTexture(
-                    human_image,
-                    rb_brd_col + BOARD_SIZE,
-                    rb_brd_row,
-                    RAYWHITE);
-            }
-            if (rb_human_player == white || rb_human_player == both)
-            {
-                DrawTexture(
-                    human_image,
-                    rb_brd_col + BOARD_SIZE,
-                    rb_brd_row + BOARD_SIZE - SQUARE_SIZE,
-                    RAYWHITE);
-            }
-            if (rb_ai_player == black || rb_ai_player == both)
-            {
-                DrawTexture(
-                    ai_image,
-                    rb_brd_col + BOARD_SIZE,
-                    rb_brd_row,
-                    RAYWHITE);
-            }
-            if (rb_ai_player == white || rb_ai_player == both)
-            {
-                DrawTexture(
-                    ai_image,
-                    rb_brd_col + BOARD_SIZE,
-                    rb_brd_row + BOARD_SIZE - SQUARE_SIZE,
-                    RAYWHITE);
-            }
-
+            // top
+            DrawTexture(
+                rb_human_player == both ? human_image : ai_image,
+                rb_brd_col + BOARD_SIZE,
+                rb_brd_row,
+                RAYWHITE);
+            // bottom
+            DrawTexture(
+                rb_ai_player == both ? ai_image : human_image,
+                rb_brd_col + BOARD_SIZE,
+                rb_brd_row + BOARD_SIZE - SQUARE_SIZE,
+                RAYWHITE);
+            
             // left board
             int clock_col = lb_brd_col + BOARD_SIZE - SQUARE_SIZE * 2;
             int clock_row = (!lb_side2move) ? 0 : SCREEN_HEIGHT - SQUARE_SIZE;
