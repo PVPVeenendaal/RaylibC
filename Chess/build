@@ -1,7 +1,7 @@
 Mac:
 
 Debug:
-eval cc chess.c -g -O0 -framework IOKit -framework Cocoa -framework OpenGL $(pkg-config --libs --cflags raylib) -o debchess
+eval cc chess.c -g -O0 -Wall -framework IOKit -framework Cocoa -framework OpenGL $(pkg-config --libs --cflags raylib) -o debchess
 Release:
 eval cc chess.c -O2 -DNDEBUG -framework IOKit -framework Cocoa -framework OpenGL $(pkg-config --libs --cflags raylib) -o macchess
 

@@ -1,7 +1,7 @@
 # RaylibC
 
 In deze map zijn verschillende hobby projecten opgenomen die gemaakt zijn op mijn nieuwe Macbook met gebruik van de Raylib library en C.
-Als editor maak ik gebruik van Visual Stdio Code voor MacOs. 
+Als editor maak ik gebruik van Visual Studio Code voor MacOs. 
 Elk project bevat een build file met de commando regels die je kan gebruiken om te builden in die Visual Studio Code omgeving.
 Hierbij zijn ook de build regels opgenomen om deze te gebruiken onder Windows.
 
