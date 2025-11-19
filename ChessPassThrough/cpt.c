@@ -4921,6 +4921,11 @@ static inline void rb_generate_moves(moves_t *move_list)
         }
     }
 
+    ///< ADD>
+    // make captured pieces move    
+    if (rb_cap_pieces_count == 0)
+        return;
+
     int rb_cappieces[11];
     int rb_rank[2][5] = {
         {Q, P, R, N, B},
@@ -7971,10 +7976,15 @@ void lb_search_position(int depth)
     }
 
 #ifndef NDEBUG // print only in debug mode
-    // print best move
-    printf("bestmove ");
-    lb_print_move(lb_pv_table[0][0]);
-    printf("\n");
+    // print best move if exist
+    if (lb_pv_table[0][0])
+    {
+        printf("bestmove ");
+        lb_print_move(lb_pv_table[0][0]);
+        printf("\n");
+    }
+    else
+        printf("no bestmove found\n");
 #endif
 }
 
@@ -8071,9 +8081,14 @@ void rb_search_position(int depth)
 
 #ifndef NDEBUG // print only in debug mode
     // print best move
-    printf("bestmove ");
-    rb_print_move(rb_pv_table[0][0]);
-    printf("\n");
+    if (rb_pv_table[0][0])
+    {
+        printf("bestmove ");
+        rb_print_move(rb_pv_table[0][0]);
+        printf("\n");
+    }
+    else
+        printf("no bestmove found\n");
 #endif
 }
 
@@ -8457,6 +8472,10 @@ U64 rb_game_hashkey[1000];
 int lb_game_hashkey_index;
 int rb_game_hashkey_index;
 
+// position change flag
+int lb_position_chg = 0;
+int rb_position_chg = 0;
+
 // methods
 
 // Fill the time for on the chessclock
@@ -8488,7 +8507,7 @@ void fill_clocktime(int side, int col)
     }
 }
 
-// fill the options left board only used for the human player
+// fill the movelist and options tables 
 void lb_fillOptions(moves_t *move_list, U64 *move_options, U64 *piece_options, U64 *cap_piece_options)
 {
     // reset move options
@@ -8531,6 +8550,7 @@ void lb_fillOptions(moves_t *move_list, U64 *move_options, U64 *piece_options, U
     }
 }
 
+// fill the movelist and options tables
 void rb_fillOptions(moves_t *move_list, U64 *move_options, U64 *piece_options, U64 *cap_piece_options)
 {
     // reset move options
@@ -8669,44 +8689,10 @@ int lb_doMove(moves_t *move_list, int sqf, int sqt, int promotionpiece)
 
     // test move
     if (!lb_make_move(move, all_moves))
-    {
         return 0;
-    }
-
+    
     // move is valid
-    lb_add_move(lb_game_moves, move);
-    return 1;
-}
-
-// make the put move from the human player
-int lb_doPutMove(moves_t *move_list, int sqt, int putpiece)
-{
-    int move = -1;
-    for (int index = 0; index < move_list->count; ++index)
-    {
-        // add move data
-        move = move_list->moves[index];
-        int sqrf = get_move_source(move);
-        int sqrt = get_move_target(move);
-        int pp = get_move_piece(move);
-
-        if (sqrf == sqt && sqrt == sqt && pp == putpiece)
-        {
-            break;
-        }
-    }
-
-    // no move found
-    if (move == -1)
-        return 0;
-
-    // test move
-    if (!lb_make_move(move, all_moves))
-    {
-        return 0;
-    }
-
-    // move is valid
+    lb_position_chg = 1;
     lb_add_move(lb_game_moves, move);
     return 1;
 }
@@ -8746,26 +8732,73 @@ int rb_doMove(moves_t *move_list, int sqf, int sqt, int promotionpiece)
 
     // test move
     if (!rb_make_move(move, all_moves))
-    {
         return 0;
-    }
-
+    
     // move is valid
+    rb_position_chg = 1;
     rb_add_move(rb_game_moves, move);
     return 1;
 }
 
+// remove a piece from the cap_pieces_list
+void lb_remove_cap_piece(int piece)
+{
+    int index = -1;
+    for (int i = 0; i < lb_cap_pieces_count; ++i)
+    {
+        if (lb_cap_pieces[i] - 100 == piece)
+        {
+            lb_cap_pieces[i] = 0;
+            index = i;
+            break;
+        }
+    }
+
+    // not found
+    if (index < 0)
+        return;
+
+    for (int i = index; i < lb_cap_pieces_count - 1; ++i)
+        lb_cap_pieces[i] = lb_cap_pieces[i + 1];
+    --lb_cap_pieces_count;
+}
+
+// remove a piece from the cap_pieces_list
+void rb_remove_cap_piece(int piece)
+{
+    int index = -1;
+    for (int i = 0; i < rb_cap_pieces_count; ++i)
+    {
+        if (rb_cap_pieces[i] - 100 == piece)
+        {
+            rb_cap_pieces[i] = 0;
+            index = i;
+            break;
+        }
+    }
+
+    // not foud
+    if (index < 0)
+        return;
+
+    for (int i = index; i < rb_cap_pieces_count - 1; ++i)
+        rb_cap_pieces[i] = rb_cap_pieces[i + 1];
+    --rb_cap_pieces_count;
+}
+
 // make the put move from the human player
-int rb_doPutMove(moves_t *move_list, int sqt, int putpiece)
+int lb_doPutMove(moves_t *move_list, int sqt, int putpiece)
 {
     int move = -1;
+    int sqrf, sqrt, pp, piece;
     for (int index = 0; index < move_list->count; ++index)
     {
         // add move data
         move = move_list->moves[index];
-        int sqrf = get_move_source(move);
-        int sqrt = get_move_target(move);
-        int pp = get_move_piece(move);
+        sqrf = get_move_source(move);
+        sqrt = get_move_target(move);
+        piece = get_move_piece(move);
+        pp = get_move_piece(move);
 
         if (sqrf == sqt && sqrt == sqt && pp == putpiece)
         {
@@ -8779,12 +8812,52 @@ int rb_doPutMove(moves_t *move_list, int sqt, int putpiece)
 
     // test move
     if (!lb_make_move(move, all_moves))
-    {
         return 0;
+    
+    // move is valid
+    lb_position_chg = 1;
+    if (sqrf == sqrt)
+        lb_remove_cap_piece(piece);
+
+    lb_add_move(lb_game_moves, move);
+    return 1;
+}
+
+
+// make the put move from the human player
+int rb_doPutMove(moves_t *move_list, int sqt, int putpiece)
+{
+    int move = -1;
+    int sqrf, sqrt, pp, piece; 
+    for (int index = 0; index < move_list->count; ++index)
+    {
+        // add move data
+        move = move_list->moves[index];
+        sqrf = get_move_source(move);
+        sqrt = get_move_target(move);
+        piece = get_move_piece(move);
+        pp = get_move_piece(move);
+
+        if (sqrf == sqt && sqrt == sqt && pp == putpiece)
+        {
+            break;
+        }
     }
 
+    // no move found
+    if (move == -1)
+        return 0;
+
+    // test move
+    if (!rb_make_move(move, all_moves))
+        return 0;
     // move is valid
-    lb_add_move(lb_game_moves, move);
+    
+    rb_position_chg = 1;
+    if (sqrf == sqrt)
+        rb_remove_cap_piece(piece);
+    
+    rb_add_move(rb_game_moves, move);
     return 1;
 }
 
@@ -9203,7 +9276,12 @@ void lb_process_a_move()
                 lb_gui_pt_pieces[lb_gui_pt_pieces_count++] = lb_pt_pieces[i];
             lb_pt_pieces_count = 0;
         }
-        lb_fillOptions(lb_gui_move_list, lb_move_options, lb_piece_options, lb_cap_piece_options);
+        if (lb_human_player == lb_side || lb_human_player == both)
+            lb_fillOptions(lb_gui_move_list, lb_move_options, lb_piece_options, lb_cap_piece_options);
+        else if ((lb_ai_player == lb_side || lb_ai_player == both) && !lb_pv_table[0][0])
+            lb_move_options[0] = 0ULL;
+        else
+            lb_move_options[0] = 1ULL;
         lb_game_end_check();
         lb_timer[lb_side ^ 1] += lb_plustimer[lb_side ^ 1];
         lb_press_clock = 1;
@@ -9227,7 +9305,12 @@ void rb_process_a_move()
                 rb_gui_pt_pieces[rb_gui_pt_pieces_count++] = rb_pt_pieces[i];
             rb_pt_pieces_count = 0;
         }
-        rb_fillOptions(rb_gui_move_list, rb_move_options, rb_piece_options, rb_cap_piece_options);
+        if (rb_human_player == rb_side || rb_human_player == both)
+            rb_fillOptions(rb_gui_move_list, rb_move_options, rb_piece_options, rb_cap_piece_options);
+        else if ((rb_ai_player == rb_side || rb_ai_player == both) && !rb_pv_table[0][0])
+            rb_move_options[0] = 0ULL;
+        else
+            rb_move_options[0] = 1ULL;
         rb_game_end_check();
         rb_timer[rb_side ^ 1] += rb_plustimer[rb_side ^ 1];
         rb_press_clock = 1;
@@ -9537,6 +9620,7 @@ void setup_game()
     lb_game_end = 0;
     lb_game_hashkey_index = 0;
     lb_gui_pt_pieces_count = 0;
+    lb_position_chg = 0;
     memset(lb_game_hashkey, 0ULL, sizeof(lb_game_hashkey));
     memset(lb_game_moves, 0, sizeof(lb_game_moves));
     memset(lb_gui_move_list, 0, sizeof(lb_gui_move_list));
@@ -9550,6 +9634,7 @@ void setup_game()
     rb_game_end = 0;
     rb_game_hashkey_index = 0;
     rb_gui_pt_pieces_count = 0;
+    rb_position_chg = 0;
     memset(rb_game_hashkey, 0ULL, sizeof(rb_game_hashkey));
     memset(rb_game_moves, 0, sizeof(rb_game_moves));
     memset(rb_gui_move_list, 0, sizeof(rb_gui_move_list));
@@ -9732,7 +9817,7 @@ int main()
                 for (int i = 0; i < rb_gui_pt_pieces_count; ++i)
                     lb_cap_pieces[lb_cap_pieces_count++] = rb_gui_pt_pieces[i];
                 rb_gui_pt_pieces_count = 0;
-                lb_getCapturedPieces();
+                lb_position_chg = 1;
             }
         }
 
@@ -9743,8 +9828,22 @@ int main()
                 for (int i = 0; i < lb_gui_pt_pieces_count; ++i)
                     rb_cap_pieces[rb_cap_pieces_count++] = lb_gui_pt_pieces[i];
                 lb_gui_pt_pieces_count = 0;
-                rb_getCapturedPieces();
+                rb_position_chg = 1;
             }
+        }
+
+        if (lb_position_chg && (lb_human_player == lb_side || lb_human_player == both))
+        {
+            lb_getCapturedPieces();
+            lb_fillOptions(lb_gui_move_list, lb_move_options, lb_piece_options, lb_cap_piece_options);
+            lb_position_chg = 0;
+        }
+
+        if (rb_position_chg && (rb_human_player == rb_side || rb_human_player == both))
+        {
+            rb_getCapturedPieces();
+            rb_fillOptions(rb_gui_move_list, rb_move_options, rb_piece_options, rb_cap_piece_options);
+            rb_position_chg = 0;
         }
 
         // draw
@@ -10067,15 +10166,18 @@ int main()
                 else if (lb_task_ready) // thread is finished
                 {
                     int bestmove = lb_pv_table[0][0];
-                    lb_add_move(lb_game_moves, bestmove);
-#ifndef NDEBUG // print only in debug mode
-               // print offset
-                    printf("\nlb\n");
-                    lb_print_move(bestmove);
-                    printf("\n");
-#endif
-                    lb_make_move(bestmove, all_moves);
-                    // check for draw by 50 moves rule or 3 times repetiton rule
+                    if (bestmove)
+                    {
+                        lb_add_move(lb_game_moves, bestmove);
+    #ifndef NDEBUG // print only in debug mode
+                // print offset
+                        printf("\nlb\n");
+                        lb_print_move(bestmove);
+                        printf("\n");
+    #endif
+                        lb_make_move(bestmove, all_moves);
+                        // check for draw by 50 moves rule or 3 times repetiton rule
+                    }
                     lb_process_a_move();
                     lb_thread_busy = 0;
                 }
@@ -10097,14 +10199,17 @@ int main()
                 else if (rb_task_ready) // the thread is finished
                 {
                     int bestmove = rb_pv_table[0][0];
-                    rb_add_move(rb_game_moves, bestmove);
-#ifndef NDEBUG // print only in debug mode
-               // print offset
-                    printf("\nrb\n");
-                    rb_print_move(bestmove);
-                    printf("\n");
-#endif
-                    rb_make_move(bestmove, all_moves);
+                    if (bestmove)
+                    {
+                        rb_add_move(rb_game_moves, bestmove);
+    #ifndef NDEBUG // print only in debug mode
+                // print offset
+                        printf("\nrb\n");
+                        rb_print_move(bestmove);
+                        printf("\n");
+    #endif
+                        rb_make_move(bestmove, all_moves);
+                    }
                     rb_process_a_move();
                     rb_thread_busy = 0;
                 }
