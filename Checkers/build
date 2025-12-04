@@ -1,0 +1,14 @@
+Mac:
+
+Debug:
+eval cc checkers.c -g -O0 -Wall -framework IOKit -framework Cocoa -framework OpenGL $(pkg-config --libs --cflags raylib) -o debcheckers
+Release:
+eval cc checkers.c -O2 -DNDEBUG -framework IOKit -framework Cocoa -framework OpenGL $(pkg-config --libs --cflags raylib) -o maccheckers
+
+Windows: 
+
+Add libraylib.a file (c:\raylib\raylib\src\libraylib.a) into lib folder, then run the following command:
+Debug:
+gcc checkers.c -o checkers.exe -O1 -Wall -std=c17 -Wno-missing-braces -L ./lib/ -lraylib -lopengl32 -lgdi32 -lwinmm
+Release:
+gcc checkers.c -o wincheckers.exe -O2 -DNDEBUG -std=c17 -Wno-missing-braces -L ./lib/ -lraylib -lopengl32 -lgdi32 -lwinmm
