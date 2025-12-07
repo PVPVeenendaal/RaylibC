@@ -4333,7 +4333,7 @@ Texture2D ai_image;
 Texture2D human_image;
 
 // title
-const char *title = "Chess in Raylib-C (C)2025 Peter Veenendaal; versie: 1.00";
+const char *title = "Chess in Raylib-C (C)2025 Peter Veenendaal; versie: 1.01";
 
 // name of the image pictures
 const char *pieces[12] = {
@@ -4660,14 +4660,14 @@ void draw_board()
                 DrawRectangleLines(
                     piece_col,
                     piece_row,
-                    SQUARE_SIZE - 2,
-                    SQUARE_SIZE - 2,
+                    SQUARE_SIZE,
+                    SQUARE_SIZE,
                     YELLOW);
                 DrawRectangleLines(
                     piece_col + 1,
                     piece_row + 1,
-                    SQUARE_SIZE - 4,
-                    SQUARE_SIZE - 4,
+                    SQUARE_SIZE - 2,
+                    SQUARE_SIZE - 2,
                     YELLOW);
             }
             if (sbit)
@@ -4675,14 +4675,14 @@ void draw_board()
                 DrawRectangleLines(
                     piece_col,
                     piece_row,
-                    SQUARE_SIZE - 2,
-                    SQUARE_SIZE - 2,
+                    SQUARE_SIZE,
+                    SQUARE_SIZE,
                     GREEN);
                 DrawRectangleLines(
                     piece_col + 1,
                     piece_row + 1,
-                    SQUARE_SIZE - 4,
-                    SQUARE_SIZE - 4,
+                    SQUARE_SIZE - 2,
+                    SQUARE_SIZE - 2,
                     GREEN);
             }
             if (piece >= P && piece <= k)
@@ -4795,6 +4795,7 @@ void process_a_move()
         timer[side ^ 1] += plustimer[side ^ 1];
         press_clock = 1;
     }
+    side2move = side;
 }
 
 // Handle the mouse click
@@ -4813,7 +4814,7 @@ void process_mouseclick(int x, int y)
     {
         sqr = reversed ? 63 - (sqry * 8 + sqrx) : sqry * 8 + sqrx;
         on_board = 1;
-        if (human_player == side || human_player == both)
+        if (human_player == side2move || human_player == both)
         {
             if (get_bit(move_options[0], sqr))
             {
@@ -4877,18 +4878,27 @@ void process_mouseclick(int x, int y)
 }
 
 // Draw clock time
-void draw_clocktime(int side, int posx, int posy, Color col)
+void draw_clocktime(int posx, int posy)
 {
-    DrawTexture(chessclock, posx, posy, BROWN);
-    DrawRectangle(posx + 16, posy + 30, 115, 20, BROWN);
     char *mid = ":";
-    DrawText(number[clocktime[side][0]], posx + 18, posy + 30, 20, col);
-    DrawText(mid, posx + 38, posy + 30, 20, col);
-    DrawText(number[clocktime[side][1]], posx + 48, posy + 30, 20, col);
-    DrawText(number[clocktime[side][2]], posx + 68, posy + 30, 20, col);
-    DrawText(mid, posx + 88, posy + 30, 20, col);
-    DrawText(number[clocktime[side][3]], posx + 98, posy + 30, 20, col);
-    DrawText(number[clocktime[side][4]], posx + 118, posy + 30, 20, col);
+    // white side
+    DrawTexture(chessclock, posx, posy, DARKBROWN);
+    DrawRectangle(posx + 16, posy + 30, 130, 20, BROWN);
+    DrawText(number[clocktime[white][0]], posx + 18, posy + 34, 15, WHITE);
+    DrawText(mid, posx + 28, posy + 34, 15, WHITE);
+    DrawText(number[clocktime[white][1]], posx + 34, posy + 34, 15, WHITE);
+    DrawText(number[clocktime[white][2]], posx + 44, posy + 34, 15, WHITE);
+    DrawText(mid, posx + 54, posy + 34, 15, WHITE);
+    DrawText(number[clocktime[white][3]], posx + 60, posy + 34, 15, WHITE);
+    DrawText(number[clocktime[white][4]], posx + 70, posy + 34, 15, WHITE);
+    // black side
+    DrawText(number[clocktime[black][0]], posx + 86, posy + 34, 15, BLACK);
+    DrawText(mid, posx + 96, posy + 34, 15, BLACK);
+    DrawText(number[clocktime[black][1]], posx + 100, posy + 34, 15, BLACK);
+    DrawText(number[clocktime[black][2]], posx + 110, posy + 34, 15, BLACK);
+    DrawText(mid, posx + 120, posy + 34, 15, BLACK);
+    DrawText(number[clocktime[black][3]], posx + 124, posy + 34, 15, BLACK);
+    DrawText(number[clocktime[black][4]], posx + 134, posy + 34, 15, BLACK);
 }
 
 // set the game data
@@ -4905,7 +4915,7 @@ void setup_game(int game_color)
     memset(gui_move_list, 0, sizeof(gui_move_list));
 
     // set timer settings for the clock
-    timer[white] = timer[black] = 600;
+    timer[white] = timer[black] = 900;
     plustimer[white] = plustimer[black] = 3;
     // fill the clock settings
     fill_clocktime(white);
@@ -4946,6 +4956,7 @@ void setup_game(int game_color)
     // initial set up of the draw board
     for (int i = 0; i < 64; ++i)
         drawboard[i] = getPiece(i);
+    side2move = side;
     gamestate = StartGame;
 }
 
@@ -4961,9 +4972,6 @@ int main()
     // initialize raylib
     InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, title);
     // load images and set sizes
-    table = LoadTexture("./assets/Table.png");
-    table.width = SCREEN_WIDTH;
-    table.height = SCREEN_HEIGHT;
     board = LoadTexture("./assets/Board.png");
     board.width = BOARD_SIZE;
     board.height = BOARD_SIZE;
@@ -4980,7 +4988,7 @@ int main()
     enterbtn.height = SQUARE_SIZE;
     enterbtn.width = SQUARE_SIZE * 2;
     chessclock = LoadTexture("assets/Clock.png");
-    chessclock.width = SQUARE_SIZE * 2;
+    chessclock.width = SQUARE_SIZE * 2 + 20;
     chessclock.height = SQUARE_SIZE;
     ai_image = LoadTexture("assets/AI.png");
     ai_image.width = SQUARE_SIZE;
@@ -5031,13 +5039,7 @@ int main()
 
         // draw
         BeginDrawing();
-        ClearBackground(RAYWHITE);
-        // Draw table
-        DrawTexture(
-            table,
-            0,
-            0,
-            RAYWHITE);
+        ClearBackground(DARKBROWN);
         // Draw board
         draw_board();
 
@@ -5056,21 +5058,9 @@ int main()
             RAYWHITE);
 
         int clock_col = brd_col + BOARD_SIZE - SQUARE_SIZE * 2;
-        int clock_row, xclock_row;
-        if (side2move == white)
-        {
-            clock_row = (reversed) ? 0 : SCREEN_HEIGHT - SQUARE_SIZE;
-            xclock_row = (reversed) ? SCREEN_HEIGHT - SQUARE_SIZE : 0;
-        }
-        else
-        {
-            clock_row = (reversed) ? SCREEN_HEIGHT - SQUARE_SIZE : 0;
-            xclock_row = (reversed) ? 0 : SCREEN_HEIGHT - SQUARE_SIZE;
-        }
-        Color color = (!side2move) ? RAYWHITE : BLACK;
-        draw_clocktime(side2move, clock_col, clock_row, color);
-        draw_clocktime(side2move ^ 1, clock_col, xclock_row, RED);
-
+        int clock_row = 0;
+        draw_clocktime(clock_col, clock_row);
+        
         if (!thread_busy)
             // choice promotion piece
             if (promotion && promotionmove == -1 && (human_player == side || human_player == both))
@@ -5114,6 +5104,27 @@ int main()
                 DrawText(text_game_end[game_end], SQUARE_SIZE, SQUARE_SIZE * 2 + BOARD_SIZE, 20, PURPLE);
             }
         }
+
+        // instructions
+        if (gamestate == PlayGame)
+        {
+            if (human_player == side2move || human_player == both)
+                DrawText(
+                    (selectpiece == -1) ? "Maak je zet, click op een geel gemarkeerd veld"
+                                        : "Click op een groen gemarkeerd veld",
+                    SQUARE_SIZE,
+                    SQUARE_SIZE * 2 + BOARD_SIZE + HALF_SQUARE_SIZE,
+                    20,
+                    YELLOW);
+            else if (ai_player == side2move || ai_player == both)
+                DrawText(
+                    "Ik denk na over mijn zet...",
+                    SQUARE_SIZE,
+                    SQUARE_SIZE * 2 + BOARD_SIZE + HALF_SQUARE_SIZE,
+                    20,
+                    YELLOW);
+        }
+
 
         EndDrawing();
 
@@ -5201,7 +5212,6 @@ int main()
     for (int i = 0; i < 12; ++i)
         UnloadTexture(large_pieces[i]);
     UnloadTexture(choice);
-    UnloadTexture(table);
     UnloadTexture(board);
     UnloadTexture(chessclock);
     UnloadTexture(ai_image);
