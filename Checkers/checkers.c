@@ -21,15 +21,15 @@
 #define get_bit(bitboard, square) ((bitboard) & (1ULL << (square)))
 #define pop_bit(bitboard, square) ((bitboard) &= ~(1ULL << (square)))
 
-#define SCREEN_WIDTH 990
-#define SCREEN_HEIGHT 810
+#define SCREEN_WIDTH 800
+#define SCREEN_HEIGHT 800
 #define BOARD_ROW 80
-#define BOARD_COL 40
+#define BOARD_COL 80
 #define BOARD_SIZE 640
 #define SQUARE_SIZE 80
 #define HALF_SQUARE_SIZE 40
 
-#define title "Checkers in Raylib-C (C)2025 Peter Veenendaal; versie: 0.90"
+#define title "Checkers in Raylib-C (C)2025 Peter Veenendaal; versie: 1.00"
 
 // define min max macros
 #define Max(a, b) ((a) >= (b) ? (a) : (b))
@@ -1948,8 +1948,11 @@ int selected_square = 99;
 // movelist used in the GUI
 moves_t gui_movelist[1];
 
-// all played moves in the game
-moves_t game_movelist[2];
+// for showing the last played move
+move_t last_move[2];
+
+// count the played moves in the game for white and black
+int move_counter[2];
 
 // TASK
 // flag that indicates that the thinking task is ready
@@ -2030,7 +2033,8 @@ void process_move(const int selected_piece, const int selected_square, moves_t *
     {
         if (movelist->moves[i].sqf == selected_piece && movelist->moves[i].sqt == selected_square)
         {
-            game_movelist[side].moves[game_movelist[side].counter++] = movelist->moves[i];
+            last_move[side] = movelist->moves[i];
+            ++move_counter[side];
             make_move(movelist->moves[i], all_moves);
             break;
         }
@@ -2112,7 +2116,9 @@ void new_game(const int state, moves_t *movelist)
     generate_moves(movelist);
     fill_gui_board();
     fill_options(movelist);
-    memset(game_movelist, 0, sizeof(moves_t) * 2);
+    memset(last_move, 0, sizeof(move_t) * 2);
+    move_counter[black] = 0;
+    move_counter[white] = 0;
     game_state = state;
 }
 
@@ -2122,7 +2128,7 @@ void *task(void *arg)
     thread_busy = 1;
     task_ready = 0;
     int depth = 64;
-    movestogo = Max(50 - (game_movelist[0].counter) / 2, 10);
+    movestogo = Max(50 - move_counter[side], 10);
     ucitime = Max(timer[side] * 1000 / movestogo, 1000);
     if (ucitime > 1500)
         ucitime -= 50;
@@ -2180,6 +2186,10 @@ int main()
     Texture2D img_clock = LoadTexture("./assets/Clock.png");
     img_clock.height = SQUARE_SIZE;
     img_clock.width = SQUARE_SIZE * 2;
+    Texture2D img_back = LoadTexture("./assets/back.png");
+    img_back.height = img_back.width = BOARD_SIZE;
+    Texture2D img_choice = LoadTexture("./assets/Choice.png");
+    img_choice.height = img_choice.width = SQUARE_SIZE;
 
     // thread to run
     pthread_t thread;
@@ -2243,12 +2253,11 @@ int main()
         ClearBackground(DARKBROWN);
 
         // Draw board
-        DrawRectangle(
+        DrawTexture(
+            img_back,
             BOARD_COL,
             BOARD_ROW,
-            BOARD_SIZE,
-            BOARD_SIZE,
-            GRAY);
+            RAYWHITE);
         for (int row = 0; row < SIZE; ++row)
             for (int col = 0; col < SIZE; ++col)
                 if ((row + col) % 2 == 0)
@@ -2282,7 +2291,7 @@ int main()
                         img,
                         BOARD_COL + col * SQUARE_SIZE,
                         BOARD_ROW + row * SQUARE_SIZE,
-                        LIGHTGRAY);
+                        RAYWHITE);
                     if (game_state == Game_play && (human_player == gui_side || human_player == both))
                     {
                         int sq = (reversed) ? (7 - row) * 8 + 7 - col : row * 8 + col;
@@ -2337,6 +2346,12 @@ int main()
         // game start, choose color
         if (game_state != Game_play)
         {
+            DrawTexture(
+                img_choice,
+                0,
+                BOARD_ROW + BOARD_SIZE,
+                RAYWHITE
+            );
             DrawText(
                 "Kies: F5=Wit, F6=Zwart, F7=Beide, F8=Auto",
                 BOARD_COL,
@@ -2349,7 +2364,7 @@ int main()
         {
             if (human_player == gui_side || human_player == both)
                 DrawText(
-                    (selected_piece == 99) ? "Maak je zet, click op een groen gemarkeerd veld, click op x om op te geven"
+                    (selected_piece == 99) ? "Click op een groen gemarkeerd veld, click op x om op te geven"
                                            : "Click op een blauw gemarkeerd veld, click op x om op te geven",
                     BOARD_COL,
                     SCREEN_HEIGHT - 25,
@@ -2373,100 +2388,83 @@ int main()
                 20,
                 PURPLE);
         }
-        // draw game_list
-        DrawRectangle(
-            BOARD_COL + BOARD_SIZE + HALF_SQUARE_SIZE - 4,
-            BOARD_ROW - 4,
-            178,
-            650,
-            GRAY);
-        DrawText(
-            "Zwart",
-            BOARD_COL + BOARD_SIZE + HALF_SQUARE_SIZE + 30,
-            BOARD_ROW,
-            18,
-            BLACK);
-        DrawText(
-            "Wit",
-            BOARD_COL + BOARD_SIZE + HALF_SQUARE_SIZE + 120,
-            BOARD_ROW,
-            18,
-            WHITE);
-
-        int minidx = 0;
-        int cnt = game_movelist[black].counter;
-        for (int n = 5; n >= 1; --n)
+        
+        // draw the last move played
+        // for black
+        if (move_counter[black] > 0)
         {
-            if (cnt > 30 * n)
-            {
-                minidx = game_movelist[black].counter - 30 * n;
-                break;
-            }
-        }
-        int rowidx = -1;
-        for (int index = minidx; index < game_movelist[black].counter; ++index)
-        {
-            ++rowidx;
-            move_t m = game_movelist[black].moves[index];
             char text0[3];
-            intToStr(index + 1, text0);
-            char *text1 = squarenumber[(int)m.sqf];
-            char *text2 = squarenumber[(int)m.sqt];
-            char *text3 = m.cap ? "x" : "-";
+            intToStr(move_counter[black], text0);
+            char *text1 = squarenumber[(int)last_move[black].sqf];
+            char *text2 = squarenumber[(int)last_move[black].sqt];
+            char *text3 = last_move[black].cap ? "x" : "-";
+            int posx = BOARD_COL;
+            int posy = (reversed) ? BOARD_ROW + BOARD_SIZE + 4 : BOARD_ROW - 20;
             DrawText(
                 text0,
-                BOARD_COL + BOARD_SIZE + HALF_SQUARE_SIZE,
-                BOARD_ROW + HALF_SQUARE_SIZE + rowidx * 20,
+                posx,
+                posy,
                 18,
-                PURPLE);
+                LIGHTGRAY);
             DrawText(
                 text1,
-                BOARD_COL + BOARD_SIZE + HALF_SQUARE_SIZE + 30,
-                BOARD_ROW + HALF_SQUARE_SIZE + rowidx * 20,
+                posx + 30,
+                posy,
                 18,
-                BLACK);
+                LIGHTGRAY);
             DrawText(
                 text3,
-                BOARD_COL + BOARD_SIZE + HALF_SQUARE_SIZE + 50,
-                BOARD_ROW + HALF_SQUARE_SIZE + rowidx * 20,
+                posx + 50,
+                posy,
                 18,
-                BLACK);
+                LIGHTGRAY);
             DrawText(
                 text2,
-                BOARD_COL + BOARD_SIZE + HALF_SQUARE_SIZE + 60,
-                BOARD_ROW + HALF_SQUARE_SIZE + rowidx * 20,
+                posx + 60,
+                posy,
                 18,
-                BLACK);
-            if (game_movelist[white].moves[index].sqf >= 0 && game_movelist[white].moves[index].sqt >= 0)
-            {
-                move_t m = game_movelist[white].moves[index];
-                char *text1 = squarenumber[(int)m.sqf];
-                char *text2 = squarenumber[(int)m.sqt];
-                char *text3 = m.cap ? "x" : "-";
-                DrawText(
-                    text1,
-                    BOARD_COL + BOARD_SIZE + HALF_SQUARE_SIZE + 120,
-                    BOARD_ROW + HALF_SQUARE_SIZE + rowidx * 20,
-                    18,
-                    WHITE);
-                DrawText(
-                    text3,
-                    BOARD_COL + BOARD_SIZE + HALF_SQUARE_SIZE + 140,
-                    BOARD_ROW + HALF_SQUARE_SIZE + rowidx * 20,
-                    18,
-                    WHITE);
-                DrawText(
-                    text2,
-                    BOARD_COL + BOARD_SIZE + HALF_SQUARE_SIZE + 150,
-                    BOARD_ROW + HALF_SQUARE_SIZE + rowidx * 20,
-                    18,
-                    WHITE);
-            }
+                LIGHTGRAY);
         }
 
-        char *number[10] = {"0", "1", "2", "3", "4", "5", "6", "7", "8", "9"};
+        // for white
+        if (move_counter[white] > 0)
+        {
+            char text0[3];
+            intToStr(move_counter[white], text0);
+            char *text1 = squarenumber[(int)last_move[white].sqf];
+            char *text2 = squarenumber[(int)last_move[white].sqt];
+            char *text3 = last_move[white].cap ? "x" : "-";
+            int posx = BOARD_COL;
+            int posy = (reversed) ? BOARD_ROW - 20 : BOARD_ROW + BOARD_SIZE + 4;
+            DrawText(
+                text0,
+                posx,
+                posy,
+                18,
+                WHITE);
+            DrawText(
+                text1,
+                posx + 30,
+                posy,
+                18,
+                WHITE);
+            DrawText(
+                text3,
+                posx + 50,
+                posy,
+                18,
+                WHITE);
+            DrawText(
+                text2,
+                posx + 60,
+                posy,
+                18,
+                WHITE);
+        }
 
         // Draw clock time
+        char *number[10] = {"0", "1", "2", "3", "4", "5", "6", "7", "8", "9"};
+
         int posx = BOARD_COL + SQUARE_SIZE * 6;
         int posy = 0;
         DrawTexture(img_clock, posx, posy, DARKBROWN);
@@ -2630,6 +2628,9 @@ int main()
     UnloadTexture(img_bpawn);
     UnloadTexture(img_wking);
     UnloadTexture(img_bking);
+    UnloadTexture(img_back);
+    UnloadTexture(img_choice);
+    UnloadTexture(img_clock);
     // close the raylib window
     CloseWindow();
 

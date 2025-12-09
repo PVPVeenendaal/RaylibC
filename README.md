@@ -8,8 +8,8 @@ Hierbij zijn ook de build regels opgenomen om deze te gebruiken onder Windows.
 ## Projecten
 
 - ChessPassThrough (een doorgeef schaakspel tussen speler en computer, 2 tegenstanders en 1 medestander) => testversie, nog in bewerking  
-- Chess (een test programma om de aansluiting met de gebuikte chess engine te testen) => releaseversie 1.00
-- Checkers (een damspel op een schaakbord) met bitboard generatie van zetten => testversie, nog in bewerking 
+- Chess (een test programma om de aansluiting met de gebuikte chess engine te testen) => releaseversie 
+- Checkers (een damspel op een schaakbord) met bitboard generatie van zetten en negamax search => releaseversie 
 
 N.B. 
 - Van de projecten die release klaar zijn is een zip file toegevoegd voor Windows, 
