@@ -2472,20 +2472,20 @@ int main()
         DrawTexture(img_clock, posx, posy, DARKBROWN);
         DrawRectangle(posx + 16, posy + 30, 130, 20, BROWN);
         char *mid = ":";
-        DrawText(number[clocktime[black][0]], posx + 18, posy + 34, 12, BLACK);
-        DrawText(mid, posx + 28, posy + 34, 12, BLACK);
-        DrawText(number[clocktime[black][1]], posx + 34, posy + 34, 12, BLACK);
-        DrawText(number[clocktime[black][2]], posx + 44, posy + 34, 12, BLACK);
-        DrawText(mid, posx + 54, posy + 34, 12, BLACK);
-        DrawText(number[clocktime[black][3]], posx + 60, posy + 34, 12, BLACK);
-        DrawText(number[clocktime[black][4]], posx + 70, posy + 34, 12, BLACK);
-        DrawText(number[clocktime[white][0]], posx + 86, posy + 34, 12, WHITE);
-        DrawText(mid, posx + 96, posy + 34, 12, WHITE);
-        DrawText(number[clocktime[white][1]], posx + 100, posy + 34, 12, WHITE);
-        DrawText(number[clocktime[white][2]], posx + 110, posy + 34, 12, WHITE);
+        DrawText(number[clocktime[black][0]], posx + 18, posy + 34, 15, BLACK);
+        DrawText(mid, posx + 28, posy + 34, 15, BLACK);
+        DrawText(number[clocktime[black][1]], posx + 34, posy + 34, 15, BLACK);
+        DrawText(number[clocktime[black][2]], posx + 44, posy + 34, 15, BLACK);
+        DrawText(mid, posx + 54, posy + 34, 15, BLACK);
+        DrawText(number[clocktime[black][3]], posx + 60, posy + 34, 15, BLACK);
+        DrawText(number[clocktime[black][4]], posx + 70, posy + 34, 15, BLACK);
+        DrawText(number[clocktime[white][0]], posx + 86, posy + 34, 15, WHITE);
+        DrawText(mid, posx + 96, posy + 34, 15, WHITE);
+        DrawText(number[clocktime[white][1]], posx + 100, posy + 34, 15, WHITE);
+        DrawText(number[clocktime[white][2]], posx + 110, posy + 34, 15, WHITE);
         DrawText(mid, posx + 120, posy + 34, 12, WHITE);
-        DrawText(number[clocktime[white][3]], posx + 124, posy + 34, 12, WHITE);
-        DrawText(number[clocktime[white][4]], posx + 134, posy + 34, 12, WHITE);
+        DrawText(number[clocktime[white][3]], posx + 124, posy + 34, 15, WHITE);
+        DrawText(number[clocktime[white][4]], posx + 134, posy + 34, 15, WHITE);
 
         EndDrawing();
 
