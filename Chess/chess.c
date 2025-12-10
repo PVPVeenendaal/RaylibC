@@ -407,6 +407,59 @@ char promoted_pieces[] = {
     [b] = 'b',
     [n] = 'n'};
 
+// string tools
+
+// integer to string
+void intToStr(int N, char *str)
+{
+    int i = 0;
+
+    // Save the copy of the number for sign
+    int sign = N;
+
+    // If the number is negative, make it positive
+    if (N < 0)
+        N = -N;
+
+    // Extract digits from the number and add them to the
+    // string
+    while (N > 0)
+    {
+
+        // Convert integer digit to character and store
+        // it in the str
+        str[i++] = N % 10 + '0';
+        N /= 10;
+    }
+
+    // If the number was negative, add a minus sign to the
+    // string
+    if (sign < 0)
+    {
+        str[i++] = '-';
+    }
+
+    // Null-terminate the string
+    str[i] = '\0';
+
+    // Reverse the string to get the correct order
+    for (int j = 0, k = i - 1; j < k; j++, k--)
+    {
+        char temp = str[j];
+        str[j] = str[k];
+        str[k] = temp;
+    }
+}
+
+// concatenate 2 strings
+char *concat(const char *s1, const char *s2)
+{
+    char *result = malloc(strlen(s1) + strlen(s2) + 1); // +1 for the null-terminator
+    strcpy(result, s1);
+    strcat(result, s2);
+    return result;
+}
+
 /**********************************\
  ==================================
 
@@ -4308,6 +4361,8 @@ enum
     bDrawPat = 7, // draw by black king is pat
     DrawRep = 8,  // draw by repeat moves rule
     Draw50 = 9,   // draw by 50 moves rule
+    wResign = 10, // black wins, white resigned
+    bResign = 11, // white wins, black resigned
 };
 
 // -----------------------------------------------------------------------
@@ -4333,7 +4388,7 @@ Texture2D ai_image;
 Texture2D human_image;
 
 // title
-const char *title = "Chess in Raylib-C (C)2025 Peter Veenendaal; versie: 1.01";
+const char *title = "Chess in Raylib-C (C)2025 Peter Veenendaal; versie: 1.10";
 
 // name of the image pictures
 const char *pieces[12] = {
@@ -4352,7 +4407,7 @@ const char *pieces[12] = {
 };
 
 // text to print when the game is finished
-const char *text_game_end[10] = {
+const char *text_game_end[12] = {
     "",
     "zwart wint, wit staat schaakmat",
     "zwart wint, wit heeft geen bedenktijd meer",
@@ -4362,7 +4417,9 @@ const char *text_game_end[10] = {
     "wit staat pat, het is remise",
     "zwart staat pat, het is remise",
     "het is remise door 3 zetten regel",
-    "het is remise door 50 zetten regel"};
+    "het is remise door 50 zetten regel",
+    "zwart wint, wit geeft op",
+    "Wit wint, zwart geeft op"};
 
 // promoted pieces to draw
 const int promote_pieces[2][4] = {
@@ -4418,7 +4475,13 @@ int gamestate = StartGame;
 // reason the gam ends
 int game_end = 0;
 
-// list of moves used in the gui
+// last move played by white or black
+int last_move[2];
+
+// move counter for black or white
+int move_counter[2];
+
+// moves for the gui
 moves_t gui_move_list[1];
 
 // bits are set when a piece on the square can move
@@ -4432,9 +4495,6 @@ int ai_player;
 
 // color from the human player
 int human_player;
-
-// for counting the moves executed
-moves_t game_moves[1];
 
 // variables for the chessclock
 
@@ -4474,6 +4534,15 @@ U64 game_hashkey[1000];
 
 // index of the array
 int game_hashkey_index;
+
+// Color choice
+int game_color_choice;
+
+// Time choice
+int game_time_choice;
+
+// Plus time choice
+int game_plustime_choice;
 
 // methods
 
@@ -4582,7 +4651,8 @@ int doMove(moves_t *move_list, int sqf, int sqt, int promotionpiece)
     }
 
     // move is valid
-    add_move(game_moves, move);
+    last_move[side2move] = move;
+    ++move_counter[side2move];
     return 1;
 }
 
@@ -4592,10 +4662,7 @@ void *task(void *arg)
     task_ready = 0;
     thread_busy = 1;
     int depth = 64;
-    if (game_moves->count % 2 == 1)
-        movestogo = Max(50 - (game_moves->count - 1) / 2, 10);
-    else
-        movestogo = Max(50 - game_moves->count / 2, 10);
+    movestogo = Max(50 - move_counter[side], 10);
     ucitime = Max(timer[side] * 1000 / movestogo, 1000);
     if (ucitime > 1500)
         ucitime -= 50;
@@ -4910,9 +4977,13 @@ void setup_game(int game_color)
     promotionmove = -1;
     game_end = 0;
     game_hashkey_index = 0;
+    last_move[white] = last_move[black] = 0;
+    move_counter[white] = move_counter[black] = 0;
     memset(game_hashkey, 0ULL, sizeof(game_hashkey));
-    memset(game_moves, 0, sizeof(game_moves));
     memset(gui_move_list, 0, sizeof(gui_move_list));
+    game_color_choice = white;
+    game_time_choice = 10;
+    game_plustime_choice = 0;
 
     // set timer settings for the clock
     timer[white] = timer[black] = 900;
@@ -4981,12 +5052,6 @@ int main()
         large_pieces[i].width = LARGE_PIECE_SIZE;
         large_pieces[i].height = LARGE_PIECE_SIZE;
     }
-    choice = LoadTexture("./assets/Choice.png");
-    choice.width = LARGE_PIECE_SIZE;
-    choice.height = LARGE_PIECE_SIZE;
-    enterbtn = LoadTexture("assets/Enter.png");
-    enterbtn.height = SQUARE_SIZE;
-    enterbtn.width = SQUARE_SIZE * 2;
     chessclock = LoadTexture("assets/Clock.png");
     chessclock.width = SQUARE_SIZE * 2 + 20;
     chessclock.height = SQUARE_SIZE;
@@ -5093,15 +5158,10 @@ int main()
         // draw text when the game is finished
         if (gamestate == StartGame || gamestate == StopGame)
         {
-            DrawTexture(
-                choice,
-                2,
-                SQUARE_SIZE * 2 + BOARD_SIZE,
-                RAYWHITE);
-            DrawText("Kies kleur: F5 = Wit, F6 = Zwart, F7 = Beide, F8 = Auto ", SQUARE_SIZE, SQUARE_SIZE * 2 + BOARD_SIZE + HALF_SQUARE_SIZE, 20, YELLOW);
+            DrawText("Kies kleur: F5 = Wit, F6 = Zwart, F7 = Beide, F8 = Auto ", SQUARE_SIZE, SCREEN_HEIGHT - 25, 20, YELLOW);
             if (gamestate == StopGame)
             {
-                DrawText(text_game_end[game_end], SQUARE_SIZE, SQUARE_SIZE * 2 + BOARD_SIZE, 20, PURPLE);
+                DrawText(text_game_end[game_end], SQUARE_SIZE, SCREEN_HEIGHT - 50, 20, PURPLE);
             }
         }
 
@@ -5110,21 +5170,141 @@ int main()
         {
             if (human_player == side2move || human_player == both)
                 DrawText(
-                    (selectpiece == -1) ? "Maak je zet, click op een geel gemarkeerd veld"
-                                        : "Click op een groen gemarkeerd veld",
+                    (selectpiece == -1) ? "Click op een geel gemarkeerd veld, click op x om op te geven"
+                                        : "Click op een groen gemarkeerd veld, click op x om op te geven",
                     SQUARE_SIZE,
-                    SQUARE_SIZE * 2 + BOARD_SIZE + HALF_SQUARE_SIZE,
+                    SCREEN_HEIGHT - 25,
                     20,
                     YELLOW);
             else if (ai_player == side2move || ai_player == both)
                 DrawText(
                     "Ik denk na over mijn zet...",
                     SQUARE_SIZE,
-                    SQUARE_SIZE * 2 + BOARD_SIZE + HALF_SQUARE_SIZE,
+                    SCREEN_HEIGHT - 25,
                     20,
                     YELLOW);
-        }
 
+            // draw the last move played
+            // for black
+            if (move_counter[black] > 0)
+            {
+                char text0[3];
+                intToStr(move_counter[black], text0);
+                int sqf = get_move_source(last_move[black]);
+                int sqt = get_move_target(last_move[black]);
+                int pic = get_move_piece(last_move[black]);
+                int pp = get_move_promoted(last_move[black]);
+                int cap = get_move_capture(last_move[black]);
+                int ep = get_move_enpassant(last_move[black]);
+                int cas = get_move_castling(last_move[black]);
+
+                int posx = SQUARE_SIZE;
+                int posy = (reversed) ? SQUARE_SIZE * 2 + BOARD_SIZE + HALF_SQUARE_SIZE : HALF_SQUARE_SIZE;
+                char *pstr[12] = {" ", "P", "L", "T", "D", "K", " ", "P", "L", "T", "D", "K"};
+                
+                DrawText(
+                    text0,
+                    posx,
+                    posy,
+                    18,
+                    LIGHTGRAY);        
+                    
+                if (cas)
+                {
+                    if (sqt == g8)
+                        DrawText(
+                            "O-O",
+                            posx + 30,
+                            posy,
+                            18,
+                            LIGHTGRAY);
+                    else
+                        DrawText(
+                            "O-O-O",
+                            posx + 30,
+                            posy,
+                            18,
+                            LIGHTGRAY);
+                } 
+                else
+                {
+                    char *capstr = cap ? "x" : "-";
+                    char *text1 = concat(pstr[pic], square_to_coordinates[sqf]); 
+                    char *text2 = concat(text1, capstr);
+                    char *text3 = concat(text2, square_to_coordinates[sqt]);
+                    char *prostr = pp ? concat("=", pstr[pp]) : " ";
+                    char *epstr = ep ? "ep" : " ";
+                    text3 = concat(text3, prostr);
+                    text3 = concat(text3, epstr);
+                    DrawText(
+                        text3,
+                        posx + 30,
+                        posy,
+                        18,
+                        LIGHTGRAY);
+                }
+            }
+
+            // for white
+            if (move_counter[white] > 0)
+            {
+                char text0[3];
+                intToStr(move_counter[white], text0);
+                int sqf = get_move_source(last_move[white]);
+                int sqt = get_move_target(last_move[white]);
+                int pic = get_move_piece(last_move[white]);
+                int pp = get_move_promoted(last_move[white]);
+                int cap = get_move_capture(last_move[white]);
+                int ep = get_move_enpassant(last_move[white]);
+                int cas = get_move_castling(last_move[white]);
+
+                int posx = SQUARE_SIZE;
+                int posy = (reversed) ? HALF_SQUARE_SIZE : SQUARE_SIZE  * 2 + BOARD_SIZE + HALF_SQUARE_SIZE;
+                char *pstr[12] = {" ", "P", "L", "T", "D", "K", " ", "P", "L", "T", "D", "K"};
+                
+                DrawText(
+                    text0,
+                    posx,
+                    posy,
+                    18,
+                    WHITE);        
+                    
+                if (cas)
+                {
+                    if (sqt == g1)
+                        DrawText(
+                            "O-O",
+                            posx + 30,
+                            posy,
+                            18,
+                            WHITE);
+                    else
+                        DrawText(
+                            "O-O-O",
+                            posx + 30,
+                            posy,
+                            18,
+                            WHITE);
+                } 
+                else
+                {
+                    char *capstr = cap ? "x" : "-";
+                    char *text1 = concat(pstr[pic], square_to_coordinates[sqf]); 
+                    char *text2 = concat(text1, capstr);
+                    char *text3 = concat(text2, square_to_coordinates[sqt]);
+                    char *prostr = pp ? concat("=", pstr[pp]) : " ";
+                    char *epstr = ep ? "ep" : " ";
+                    text3 = concat(text3, prostr);
+                    text3 = concat(text3, epstr);
+                    DrawText(
+                        text3,
+                        posx + 30,
+                        posy,
+                        18,
+                        WHITE);
+                }
+            }
+        }
 
         EndDrawing();
 
@@ -5151,6 +5331,11 @@ int main()
             setup_game(-1);
             reversed = 0;
             gamestate = PlayGame;
+        }
+        else if (IsKeyPressed(KEY_X) && gamestate == PlayGame)
+        {
+            gamestate = StopGame;
+            game_end = side2move == white ? wResign : bResign;
         }
 
         // Mouse Press
@@ -5180,7 +5365,8 @@ int main()
                 else if (task_ready) // thread is finished
                 {
                     int bestmove = pv_table[0][0];
-                    add_move(game_moves, bestmove);
+                    last_move[side] = bestmove;
+                    ++move_counter[side];
 #ifndef NDEBUG // print only in debug mode
                // print offset
                     printf("\n");
@@ -5211,7 +5397,6 @@ int main()
     // unload pictures
     for (int i = 0; i < 12; ++i)
         UnloadTexture(large_pieces[i]);
-    UnloadTexture(choice);
     UnloadTexture(board);
     UnloadTexture(chessclock);
     UnloadTexture(ai_image);
