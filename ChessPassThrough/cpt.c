@@ -25,11 +25,11 @@
 
     ADDING CODE FOR THE PASSTHOUGH AND ASSERT TAGS BETWEEN ///<ADD> and ///</ADD>
 
-                by
-
-        Peter Veenendaal
+    
+    by        Peter Veenendaal
 
  ==================================
+
 \**********************************/
 
 // system headers
@@ -188,10 +188,12 @@ for the knight, bishop, rook or queen: bitboard option = ~occupancies[both] & pi
 #define get_move_castling(move) ((move) & 0x800000)
 
 // move list structure
+#define MOVELIST_SIZE 384
+
 typedef struct
 {
     // moves
-    int moves[256];
+    int moves[MOVELIST_SIZE];
 
     // move count
     int count;
@@ -798,7 +800,6 @@ int lb_get_time_ms()
     gettimeofday(&time_value, NULL);
     return time_value.tv_sec * 1000 + time_value.tv_usec / 1000;
 }
-
 // rightboard
 int rb_get_time_ms()
 {
@@ -825,7 +826,6 @@ static void lb_communicate()
     lb_read_input();
     */
 }
-
 // rightboard
 static void rb_communicate()
 {
@@ -874,7 +874,6 @@ unsigned int lb_get_random_U32_number()
     // return random number
     return number;
 }
-
 // rightboard
 unsigned int rb_get_random_U32_number()
 {
@@ -909,7 +908,6 @@ U64 lb_get_random_U64_number()
     // return random number
     return n1 | (n2 << 16) | (n3 << 32) | (n4 << 48);
 }
-
 // rightboard
 U64 rb_get_random_U64_number()
 {
@@ -932,7 +930,6 @@ U64 lb_generate_magic_number()
 {
     return lb_get_random_U64_number() & lb_get_random_U64_number() & lb_get_random_U64_number();
 }
-
 // rightboard
 U64 rb_generate_magic_number()
 {
@@ -967,7 +964,6 @@ static inline int lb_count_bits(U64 bitboard)
     // return bit count
     return count;
 }
-
 // rightboard
 static inline int rb_count_bits(U64 bitboard)
 {
@@ -1003,7 +999,6 @@ static inline int lb_get_ls1b_index(U64 bitboard)
         // return illegal index
         return -1;
 }
-
 // rightboard
 static inline int rb_get_ls1b_index(U64 bitboard)
 {
@@ -1072,7 +1067,6 @@ void lb_init_random_keys()
     // init random side key
     lb_side_key = lb_get_random_U64_number();
 }
-
 // rightboard
 void rb_init_random_keys()
 {
@@ -1147,7 +1141,6 @@ U64 lb_generate_hash_key()
     // return generated hash key
     return final_key;
 }
-
 // rightboard
 U64 rb_generate_hash_key()
 {
@@ -1237,7 +1230,6 @@ void lb_print_bitboard(U64 bitboard)
     printf("     Bitboard: %llud\n\n", bitboard);
 #endif
 }
-
 // rightboard
 void rb_print_bitboard(U64 bitboard)
 {
@@ -1341,7 +1333,6 @@ void lb_print_board()
     printf("     Hash key:  %llx\n", lb_hash_key);
 #endif
 }
-
 // rightboard
 void rb_print_board()
 {
@@ -1447,7 +1438,6 @@ void lb_reset_board()
     // reset lb_repetition table
     memset(lb_repetition_table, 0ULL, sizeof(lb_repetition_table));
 }
-
 // rightboard
 void rb_reset_board()
 {
@@ -1629,7 +1619,6 @@ void lb_parse_fen(char *fen)
     // init hash key
     lb_hash_key = lb_generate_hash_key();
 }
-
 // rightboard
 void rb_parse_fen(char *fen)
 {
@@ -2179,7 +2168,6 @@ U64 lb_mask_pawn_attacks(int lb_side, int square)
     // return attack map
     return attacks;
 }
-
 // rightboard
 U64 rb_mask_pawn_attacks(int rb_side, int square)
 {
@@ -2215,7 +2203,6 @@ U64 rb_mask_pawn_attacks(int rb_side, int square)
     // return attack map
     return attacks;
 }
-
 // generate knight attacks
 // leftboard
 U64 lb_mask_knight_attacks(int square)
@@ -2250,7 +2237,6 @@ U64 lb_mask_knight_attacks(int square)
     // return attack map
     return attacks;
 }
-
 // rightboard
 U64 rb_mask_knight_attacks(int square)
 {
@@ -2319,7 +2305,6 @@ U64 lb_mask_king_attacks(int square)
     // return attack map
     return attacks;
 }
-
 // rightboard
 U64 rb_mask_king_attacks(int square)
 {
@@ -2381,7 +2366,6 @@ U64 lb_mask_bishop_attacks(int square)
     // return attack map
     return attacks;
 }
-
 // rigthboard
 U64 rb_mask_bishop_attacks(int square)
 {
@@ -2436,7 +2420,6 @@ U64 lb_mask_rook_attacks(int square)
     // return attack map
     return attacks;
 }
-
 // rightboard
 U64 rb_mask_rook_attacks(int square)
 {
@@ -2510,7 +2493,6 @@ U64 lb_bishop_attacks_on_the_fly(int square, U64 block)
     // return attack map
     return attacks;
 }
-
 // rightboard
 U64 rb_bishop_attacks_on_the_fly(int square, U64 block)
 {
@@ -2603,7 +2585,6 @@ U64 lb_rook_attacks_on_the_fly(int square, U64 block)
     // return attack map
     return attacks;
 }
-
 // rightboard
 U64 rb_rook_attacks_on_the_fly(int square, U64 block)
 {
@@ -2668,7 +2649,6 @@ void lb_init_leapers_attacks()
         lb_king_attacks[square] = lb_mask_king_attacks(square);
     }
 }
-
 // rightboard
 void rb_init_leapers_attacks()
 {
@@ -2712,7 +2692,6 @@ U64 lb_set_occupancy(int index, int bits_in_mask, U64 attack_mask)
     // return occupancy map
     return occupancy;
 }
-
 // rightboard
 U64 rb_set_occupancy(int index, int bits_in_mask, U64 attack_mask)
 {
@@ -2797,7 +2776,6 @@ void lb_init_sliders_attacks(int bishop)
         }
     }
 }
-
 // rightboard
 void rb_init_sliders_attacks(int bishop)
 {
@@ -2861,7 +2839,6 @@ static inline U64 lb_get_bishop_attacks(int square, U64 occupancy)
     // return bishop attacks
     return lb_bishop_attacks[square][occupancy];
 }
-
 // rightboard
 static inline U64 rb_get_bishop_attacks(int square, U64 occupancy)
 {
@@ -2886,7 +2863,6 @@ static inline U64 lb_get_rook_attacks(int square, U64 occupancy)
     // return rook attacks
     return lb_rook_attacks[square][occupancy];
 }
-
 // rightboard
 static inline U64 rb_get_rook_attacks(int square, U64 occupancy)
 {
@@ -2931,7 +2907,6 @@ static inline U64 lb_get_queen_attacks(int square, U64 occupancy)
     // return queen attacks
     return queen_attacks;
 }
-
 // rightboard
 static inline U64 rb_get_queen_attacks(int square, U64 occupancy)
 {
@@ -3007,7 +2982,6 @@ static inline int lb_is_square_attacked(int square, int lb_side)
     // by default return 0
     return 0;
 }
-
 // rightboard
 static inline int rb_is_square_attacked(int square, int rb_side)
 {
@@ -3075,7 +3049,6 @@ void lb_print_attacked_squares(int lb_side)
     printf("\n     a b c d e f g h\n\n");
 #endif
 }
-
 // rightboard
 void rb_print_attacked_squares(int rb_side)
 {
@@ -3113,7 +3086,7 @@ void rb_print_attacked_squares(int rb_side)
 static inline void lb_add_move(moves_t *move_list, int move)
 {
     ///< ADD>
-    if (move_list->count < 255)
+    if (move_list->count < MOVELIST_SIZE - 1)
     {
         ///</ADD>
         // strore move
@@ -3124,15 +3097,14 @@ static inline void lb_add_move(moves_t *move_list, int move)
         ///< ADD>
     }
     else
-        PrintAssert(move_list->count < 255);
+        PrintAssert(move_list->count < MOVELIST_SIZE - 1);
     ///</ADD>
 }
-
 // rightboard
 static inline void rb_add_move(moves_t *move_list, int move)
 {
     ///< ADD>
-    if (move_list->count < 255)
+    if (move_list->count < MOVELIST_SIZE - 1)
     {
         ///</ADD>
         // strore move
@@ -3143,7 +3115,7 @@ static inline void rb_add_move(moves_t *move_list, int move)
         ///< ADD>
     }
     else
-        PrintAssert(move_list->count < 255);
+        PrintAssert(move_list->count < MOVELIST_SIZE - 1);
     ///</ADD>
 }
 
@@ -3161,7 +3133,6 @@ void lb_print_move(int move)
                lb_square_to_coordinates[get_move_target(move)]);
 #endif
 }
-
 // rightboard
 void rb_print_move(int move)
 {
@@ -3223,7 +3194,6 @@ void lb_print_move_list(moves_t *move_list)
     printf("\n\n     Total number of moves: %d\n\n", move_list->count);
 #endif
 }
-
 // rightboard
 void rb_print_move_list(moves_t *move_list)
 {
@@ -3286,7 +3256,6 @@ void rb_print_move_list(moves_t *move_list)
     lb_cap_pieces_count_copy = lb_cap_pieces_count, lb_pt_pieces_count_copy = lb_pt_pieces_count;                         \
     lb_side_copy = lb_side, lb_enpassant_copy = lb_enpassant, lb_castle_copy = lb_castle,                                 \
     lb_fifty_copy = lb_fifty, lb_hash_key_copy = lb_hash_key;
-
 // rightboard
 #define rb_copy_board()                                                                                                   \
     U64 rb_bitboards_copy[12], rb_occupancies_copy[3], rb_promoted_bitboards_copy[2], rb_hash_key_copy;                   \
@@ -3314,7 +3283,6 @@ void rb_print_move_list(moves_t *move_list)
     lb_cap_pieces_count = lb_cap_pieces_count_copy, lb_pt_pieces_count = lb_pt_pieces_count_copy; \
     lb_side = lb_side_copy, lb_enpassant = lb_enpassant_copy, lb_castle = lb_castle_copy,         \
     lb_fifty = lb_fifty_copy, lb_hash_key = lb_hash_key_copy;
-
 // rightboard
 #define rb_take_back()                                                                            \
     memcpy(rb_bitboards, rb_bitboards_copy, 96);                                                  \
@@ -3421,7 +3389,6 @@ static inline int lb_put_move(int move)
     // return legal put move
     return 1;
 }
-
 // rightboard
 static inline int rb_put_move(int move)
 {
@@ -3795,7 +3762,6 @@ static inline int lb_make_move(int move, int move_flag)
     }
     return 0;
 }
-
 // rightboard
 static inline int rb_make_move(int move, int move_flag)
 {
@@ -4569,7 +4535,6 @@ static inline void lb_generate_moves(moves_t *move_list)
     }
     ///</ADD>
 }
-
 // rightboard
 static inline void rb_generate_moves(moves_t *move_list)
 {
@@ -5019,7 +4984,7 @@ static inline void rb_generate_moves(moves_t *move_list)
         if (rb_cappieces[piece] > 0)
         {
             // make put moves only for the side to move
-            U64 bitboard = piece == P || piece == p ? ~lb_occupancies[both] & pawn_put_options : ~lb_occupancies[both] & piece_put_options;
+            U64 bitboard = piece == P || piece == p ? ~rb_occupancies[both] & pawn_put_options : ~rb_occupancies[both] & piece_put_options;
             while (bitboard)
             {
                 int square = rb_get_ls1b_index(bitboard);
@@ -5087,7 +5052,6 @@ const int rb_endgame_phase_score = 518;
 
 // positional piece scores [game phase][piece][square]
 const int lb_positional_score[2][6][64] =
-
     {
         {
             // opening positional piece scores //
@@ -5213,7 +5177,6 @@ const int lb_positional_score[2][6][64] =
           -27, -11, 4, 13, 14, 4, -5, -17,
           -53, -34, -21, -11, -28, -14, -24, -43}}};
 const int rb_positional_score[2][6][64] =
-
     {
         {
             // opening positional piece scores //
@@ -5500,7 +5463,6 @@ U64 lb_set_file_rank_mask(int file_number, int rank_number)
     // return mask
     return mask;
 }
-
 // rightboard
 U64 rb_set_file_rank_mask(int file_number, int rank_number)
 {
@@ -5637,7 +5599,6 @@ void lb_init_evaluation_masks()
         }
     }
 }
-
 // rightboard
 void rb_init_evaluation_masks()
 {
@@ -5766,7 +5727,6 @@ static inline int lb_get_game_phase_score()
     // return game phase score
     return white_piece_scores + black_piece_scores;
 }
-
 // rightboard
 static inline int rb_get_game_phase_score()
 {
@@ -6114,7 +6074,6 @@ static inline int lb_evaluate()
     // return final evaluation based on side
     return (lb_side == white) ? score : -score;
 }
-
 // rightboard
 static inline int rb_evaluate()
 {
@@ -6569,7 +6528,6 @@ void lb_clear_hash_table()
         hash_entry->score = 0;
     }
 }
-
 // rightboard
 void rb_clear_hash_table()
 {
@@ -6631,7 +6589,6 @@ void lb_init_hash_table(int mb)
 #endif
     }
 }
-
 // rightboard
 void rb_init_hash_table(int mb)
 {
@@ -6723,7 +6680,6 @@ static inline int lb_read_hash_entry(int alpha, int beta, int depth)
     // if hash entry doesn't exist
     return no_hash_entry;
 }
-
 // rightboard
 static inline int rb_read_hash_entry(int alpha, int beta, int depth)
 {
@@ -6791,7 +6747,6 @@ static inline void lb_write_hash_entry(int score, int depth, int hash_flag)
     hash_entry->flag = hash_flag;
     hash_entry->depth = depth;
 }
-
 // rightboard
 static inline void rb_write_hash_entry(int score, int depth, int hash_flag)
 {
@@ -6834,7 +6789,6 @@ static inline void lb_enable_pv_scoring(moves_t *move_list)
         }
     }
 }
-
 // rightboard
 static inline void rb_enable_pv_scoring(moves_t *move_list)
 {
@@ -6950,7 +6904,6 @@ static inline int lb_score_move(int move)
 
     return 0;
 }
-
 // rightboard
 static inline int rb_score_move(int move)
 {
@@ -7063,7 +7016,6 @@ static inline int lb_sort_moves(moves_t *move_list)
     }
     return 0;
 }
-
 // rightboard
 static inline int rb_sort_moves(moves_t *move_list)
 {
@@ -7115,7 +7067,6 @@ void lb_print_move_scores(moves_t *move_list)
     }
 #endif
 }
-
 // rightboard
 void rb_print_move_scores(moves_t *move_list)
 {
@@ -7146,7 +7097,6 @@ static inline int lb_is_repetition()
     // if no repetition found
     return 0;
 }
-
 // rightboard
 static inline int rb_is_repetition()
 {
@@ -7272,7 +7222,6 @@ static inline int lb_quiescence(int alpha, int beta)
     // node (position) fails low
     return alpha;
 }
-
 // rightboard
 static inline int rb_quiescence(int alpha, int beta)
 {
@@ -7684,7 +7633,6 @@ static inline int lb_negamax(int alpha, int beta, int depth)
     // node (position) fails low
     return alpha;
 }
-
 // rightboard
 static inline int rb_negamax(int alpha, int beta, int depth)
 {
@@ -8083,7 +8031,6 @@ void lb_search_position(int depth)
         printf("no bestmove found\n");
 #endif
 }
-
 // rightboard
 void rb_search_position(int depth)
 {
@@ -8204,7 +8151,6 @@ void lb_reset_time_control()
     lb_timeset = 0;
     lb_stopped = 0;
 }
-
 // rightboard
 void rb_reset_time_control()
 {
@@ -8248,7 +8194,6 @@ void lb_init_all()
     // init hash table with default 128 MB
     lb_init_hash_table(128);
 }
-
 // rightboard
 void rb_init_all()
 {
@@ -8313,11 +8258,9 @@ enum
 // -----------------------------------------------------------------------
 
 // input
-int game_player_time = 0;
-int game_player_plus_time = 0;
 int game_color = 0;
 int game_plus = 0;
-int game_time = 0;
+int game_time = 10;
 int game_state = Input;
 
 // draw sizes
@@ -8341,7 +8284,7 @@ Texture2D ai_image;
 Texture2D human_image;
 
 // title
-const char *title = "ChessPassTrough in Raylib-C (C)2025 Peter Veenendaal; versie: 0.91";
+const char *title = "ChessPassTrough in Raylib-C (C)2025 Peter Veenendaal; versie: 0.92";
 
 // name of the image pictures
 const char *pieces[12] = {
@@ -8417,19 +8360,6 @@ const char *rules[26] = {
 // input/output text and varibles
 const char *colorstr[2] = {"Speler kleur : Wit", "Speler kleur : Zwart"};
 const int colorint[2] = {white, black};
-const char *timestr[3] = {
-    "Speeltijd : 5 min",
-    "Speeltijd : 10 min",
-    "Speeltijd : 15 min",
-};
-const int timeint[3] = {300, 600, 900};
-const char *plusstr[4] = {
-    "Plus tijd per zet : 0 sec",
-    "Plus tijd per zet : 2 sec",
-    "Plus tijd per zet : 3 sec",
-    "Plus tijd per zet : 5 sec",
-};
-const int plusint[4] = {0, 2, 3, 5};
 const char *x_co[8] = {"a", "b", "c", "d", "e", "f", "g", "h"};
 const char *y_co[8] = {"8", "7", "6", "5", "4", "3", "2", "1"};
 const char *number[10] = {"0", "1", "2", "3", "4", "5", "6", "7", "8", "9"};
@@ -8510,9 +8440,9 @@ int rb_ai_player;
 int lb_human_player;
 int rb_human_player;
 
-// for counting the moves executed
-moves_t lb_game_moves[1];
-moves_t rb_game_moves[1];
+// for counting the moves executed white or black
+int lb_count_game_moves[2];
+int rb_count_game_moves[2];
 
 // variables for the chessclock
 
@@ -8520,7 +8450,7 @@ moves_t rb_game_moves[1];
 int lb_press_clock;
 int rb_press_clock;
 
-// to handle the used time in seconds
+// to handle the used time in secondsclear
 int lb_timer[2];
 int rb_timer[2];
 
@@ -8576,6 +8506,11 @@ int rb_game_hashkey_index;
 int lb_position_chg = 0;
 int rb_position_chg = 0;
 
+// last move played by white or black
+int lb_last_move[2];
+int rb_last_move[2];
+
+
 // methods
 
 // Fill the time for on the chessclock per color
@@ -8592,7 +8527,6 @@ void lb_fill_clocktime(int col)
     lb_clocktime[col][1] = (int)((min - lb_clocktime[col][2]) / 10);
     lb_clocktime[col][0] = hr;
 }
-
 // rightboard
 void rb_fill_clocktime(int col)
 {
@@ -8622,6 +8556,9 @@ void lb_fillOptions(moves_t *move_list, U64 *move_options, U64 *piece_options, U
 
     // generate moves
     lb_generate_moves(move_list);
+#ifndef NDEBUG§
+    lb_print_move_list(move_list);
+#endif
 
     for (int index = 0; index < move_list->count; ++index)
     {
@@ -8650,7 +8587,6 @@ void lb_fillOptions(moves_t *move_list, U64 *move_options, U64 *piece_options, U
         lb_take_back();
     }
 }
-
 // rightboard
 void rb_fillOptions(moves_t *move_list, U64 *move_options, U64 *piece_options, U64 *cap_piece_options)
 {
@@ -8665,7 +8601,9 @@ void rb_fillOptions(moves_t *move_list, U64 *move_options, U64 *piece_options, U
 
     // generate moves
     rb_generate_moves(move_list);
-
+#ifndef NDEBUG§
+    rb_print_move_list(move_list);
+#endif
     for (int index = 0; index < move_list->count; ++index)
     {
         // preserve the board
@@ -8710,7 +8648,6 @@ int lb_getPiece(int square)
     }
     return no_sq;
 }
-
 // rightboard
 int rb_getPiece(int square)
 {
@@ -8742,7 +8679,6 @@ void lb_getCapturedPieces()
         }
     }
 }
-
 // rightboard
 void rb_getCapturedPieces()
 {
@@ -8799,10 +8735,10 @@ int lb_doMove(moves_t *move_list, int sqf, int sqt, int promotionpiece)
     
     // move is valid
     lb_position_chg = 1;
-    lb_add_move(lb_game_moves, move);
+    lb_last_move[lb_side2move] = move;
+    ++lb_count_game_moves[lb_side2move];
     return 1;
 }
-
 // rightboard 
 int rb_doMove(moves_t *move_list, int sqf, int sqt, int promotionpiece)
 {
@@ -8843,7 +8779,8 @@ int rb_doMove(moves_t *move_list, int sqf, int sqt, int promotionpiece)
     
     // move is valid
     rb_position_chg = 1;
-    rb_add_move(rb_game_moves, move);
+    rb_last_move[rb_side2move] = move;
+    ++rb_count_game_moves[rb_side2move];
     return 1;
 }
 
@@ -8870,7 +8807,6 @@ void lb_remove_cap_piece(int piece)
         lb_cap_pieces[i] = lb_cap_pieces[i + 1];
     --lb_cap_pieces_count;
 }
-
 // rightboard
 void rb_remove_cap_piece(int piece)
 {
@@ -8928,10 +8864,10 @@ int lb_doPutMove(moves_t *move_list, int sqt, int putpiece)
     if (sqrf == sqrt)
         lb_remove_cap_piece(piece);
 
-    lb_add_move(lb_game_moves, move);
+    lb_last_move[lb_side2move] = move;
+    ++lb_count_game_moves[lb_side2move];
     return 1;
 }
-
 // rightboard
 int rb_doPutMove(moves_t *move_list, int sqt, int putpiece)
 {
@@ -8965,7 +8901,8 @@ int rb_doPutMove(moves_t *move_list, int sqt, int putpiece)
     if (sqrf == sqrt)
         rb_remove_cap_piece(piece);
     
-    rb_add_move(rb_game_moves, move);
+    rb_last_move[rb_side2move] = move;
+    ++rb_count_game_moves[rb_side2move];
     return 1;
 }
 
@@ -8976,10 +8913,8 @@ void *lb_task(void *arg)
     lb_task_ready = 0;
     lb_thread_busy = 1;
     int depth = 64;
-    if (lb_game_moves->count % 2 == 1)
-        lb_movestogo = Max(50 - (lb_game_moves->count - 1) / 2, 10);
-    else
-        lb_movestogo = Max(50 - lb_game_moves->count / 2, 10);
+    int cnt = (int)(lb_count_game_moves[lb_side2move] / 2);
+    lb_movestogo = Max(50 - cnt, 10);
     lb_ucitime = Max(lb_timer[lb_side] * 1000 / lb_movestogo, 1000);
     if (lb_ucitime > 1500)
         lb_ucitime -= 50;
@@ -8998,17 +8933,14 @@ void *lb_task(void *arg)
     lb_task_ready = 1;
     return NULL;
 }
-
 // rightboard
 void *rb_task(void *arg)
 {
     rb_task_ready = 0;
     rb_thread_busy = 1;
     int depth = 64;
-    if (rb_game_moves->count % 2 == 1)
-        rb_movestogo = Max(50 - (rb_game_moves->count - 1) / 2, 10);
-    else
-        rb_movestogo = Max(50 - rb_game_moves->count / 2, 10);
+    int cnt = (int)(rb_count_game_moves[rb_side2move] / 2);
+    rb_movestogo = Max(50 - cnt, 10);
     rb_ucitime = Max(rb_timer[rb_side] * 1000 / rb_movestogo, 1000);
     if (rb_ucitime > 1500)
         rb_ucitime -= 50;
@@ -9146,7 +9078,6 @@ void lb_draw_board()
         }
     }
 }
-
 // right board
 void rb_draw_board()
 {
@@ -9266,7 +9197,20 @@ void rb_draw_board()
 }
 
 // get the sqrx
-int get_sqrx(int col, int min)
+// leftboard
+int lb_get_sqrx(int col, int min)
+{
+    int n = min;
+    for (int i = 0; i <= 7; ++i)
+    {
+        n += SQUARE_SIZE;
+        if (col < n)
+            return i;
+    }
+    return -9;
+}
+// rightboard
+int rb_get_sqrx(int col, int min)
 {
     int n = min;
     for (int i = 0; i <= 7; ++i)
@@ -9279,7 +9223,20 @@ int get_sqrx(int col, int min)
 }
 
 // get the sqry
-int get_sqry(int row)
+// leftboard
+int lb_get_sqry(int row)
+{
+    int n = 0;
+    for (int i = -2; i <= 9; ++i)
+    {
+        n += SQUARE_SIZE;
+        if (row < n)
+            return i;
+    }
+    return -9;
+}
+// rightboard
+int rb_get_sqry(int row)
 {
     int n = 0;
     for (int i = -2; i <= 9; ++i)
@@ -9355,7 +9312,6 @@ void lb_game_end_check()
             }
         }
 }
-
 // rightboard
 void rb_game_end_check()
 {
@@ -9442,7 +9398,6 @@ void lb_process_a_move()
         lb_press_clock = 1;
     }
 }
-
 // rightboard
 void rb_process_a_move()
 {
@@ -9469,264 +9424,261 @@ void rb_process_a_move()
 }
 
 // Handle the mouse click
-void process_mouseclick(int side, int x, int y)
+// leftboard
+void lb_process_mouseclick(int x, int y)
 {
-    // left board
-    if (!side)
-    {
-        if (lb_gamestate != PlayGame)
-            return;
-        if (x < lb_brd_col || x > lb_brd_col + BOARD_SIZE)
-            return;
-        int sqrx = get_sqrx(x, SQUARE_SIZE);
-        int sqry = get_sqry(y);
+    if (lb_gamestate != PlayGame)
+        return;
+    if (x < lb_brd_col || x > lb_brd_col + BOARD_SIZE)
+        return;
+    int sqrx = lb_get_sqrx(x, SQUARE_SIZE);
+    int sqry = lb_get_sqry(y);
 #ifndef NDEBUG
-        printf("\nlb\nsqrx: %d, sqry: %d\n", sqrx, sqry);
+    printf("\nlb\nsqrx: %d, sqry: %d\n", sqrx, sqry);
 #endif
-        int sqr = -1;
-        int on_board = 0;
-        // select square on the board
-        if (sqry >= 0 && sqry <= 7 && sqrx <= 7 && !lb_promotion)
+    int sqr = -1;
+    int on_board = 0;
+    // select square on the board
+    if (sqry >= 0 && sqry <= 7 && sqrx <= 7 && !lb_promotion)
+    {
+        sqr = 63 - (sqry * 8 + sqrx);
+        on_board = 1;
+        if (lb_human_player == lb_side || lb_human_player == both)
         {
-            sqr = 63 - (sqry * 8 + sqrx);
-            on_board = 1;
-            if (lb_human_player == lb_side || lb_human_player == both)
+            if (get_bit(lb_move_options[0], sqr))
             {
-                if (get_bit(lb_move_options[0], sqr))
-                {
-                    lb_selectpiece = sqr;
-                    lb_capselectpiece = -1;
+                lb_selectpiece = sqr;
+                lb_capselectpiece = -1;
 #ifndef NDEBUG // print only in debug mode
-                    printf("\nlb\n selectpiece %s\n", lb_square_to_coordinates[lb_selectpiece]);
+                printf("\nlb\n selectpiece %s\n", lb_square_to_coordinates[lb_selectpiece]);
 #endif
-                }
             }
         }
-        // select top pieces (white)
-        else if (sqry == -1 && !lb_promotion)
+    }
+    // select top pieces (white)
+    else if (sqry == -1 && !lb_promotion)
+    {
+        if (lb_side == white && (lb_human_player == lb_side || lb_human_player == both))
         {
-            if (lb_side == white && (lb_human_player == lb_side || lb_human_player == both))
+            if (sqrx >= 0 && sqrx <= 4 && lb_drawcappieces[sqrx])
             {
-                if (sqrx >= 0 && sqrx <= 4 && lb_drawcappieces[sqrx])
+                lb_capselectpiece = sqrx;
+                lb_selectpiece = -1;
+                lb_promotionmove = -1;
+            }
+        }
+    }
+    // select bottom pieces (black)
+    else if (sqry == 8 && !lb_promotion)
+    {
+        if (lb_side == black && (lb_human_player == lb_side || lb_human_player == both))
+        {
+            if (sqrx >= 0 && sqrx <= 4 && lb_drawcappieces[sqrx + 6])
+            {
+                lb_capselectpiece = sqrx + 6;
+                lb_selectpiece = -1;
+                lb_promotionmove = -1;
+            }
+        }
+    }
+    // select promotion piece bottom (black), top (white)
+    else if ((sqry == 9 || sqry == -2) && lb_promotion && lb_promotionmove == -1)
+    {
+        int col = sqry == -2 ? white : black;
+        int pos = (lb_promotion && sqrx >= 0 && sqrx <= 4) ? sqrx : -1;
+
+        if (pos > -1)
+            lb_promotionmove = promote_pieces[col][pos];
+
+        if (lb_selectpiece != -1 && lb_selectsquare - 1)
+        {
+            int result = lb_doMove(lb_gui_move_list, lb_selectpiece, lb_selectsquare, lb_promotionmove);
+
+            if (result)
+                lb_process_a_move();
+        }
+    }
+
+    // a square on the board is selected
+    if (on_board)
+    {
+        // a piece on the board is selected
+        if (lb_selectpiece != -1)
+        {
+            if (get_bit(lb_piece_options[lb_selectpiece], sqr))
+            {
+                lb_selectsquare = sqr;
+                if ((lb_drawboard[lb_selectpiece] == p && lb_get_rank[sqr] == 0) ||
+                    (lb_drawboard[lb_selectpiece] == P && lb_get_rank[sqr] == 7))
                 {
-                    lb_capselectpiece = sqrx;
-                    lb_selectpiece = -1;
+                    lb_promotion = 1;
                     lb_promotionmove = -1;
                 }
-            }
-        }
-        // select bottom pieces (black)
-        else if (sqry == 8 && !lb_promotion)
-        {
-            if (lb_side == black && (lb_human_player == lb_side || lb_human_player == both))
-            {
-                if (sqrx >= 0 && sqrx <= 4 && lb_drawcappieces[sqrx + 6])
+                else
                 {
-                    lb_capselectpiece = sqrx + 6;
-                    lb_selectpiece = -1;
+                    lb_promotion = 0;
                     lb_promotionmove = -1;
-                }
-            }
-        }
-        // select promotion piece bottom (black), top (white)
-        else if ((sqry == 9 || sqry == -2) && lb_promotion && lb_promotionmove == -1)
-        {
-            int col = sqry == -2 ? white : black;
-            int pos = (lb_promotion && sqrx >= 0 && sqrx <= 4) ? sqrx : -1;
-
-            if (pos > -1)
-                lb_promotionmove = promote_pieces[col][pos];
-
-            if (lb_selectpiece != -1 && lb_selectsquare - 1)
-            {
-                int result = lb_doMove(lb_gui_move_list, lb_selectpiece, lb_selectsquare, lb_promotionmove);
-
-                if (result)
-                    lb_process_a_move();
-            }
-        }
-
-        // a square on the board is selected
-        if (on_board)
-        {
-            // a piece on the board is selected
-            if (lb_selectpiece != -1)
-            {
-                if (get_bit(lb_piece_options[lb_selectpiece], sqr))
-                {
-                    lb_selectsquare = sqr;
-                    if ((lb_drawboard[lb_selectpiece] == p && lb_get_rank[sqr] == 0) ||
-                        (lb_drawboard[lb_selectpiece] == P && lb_get_rank[sqr] == 7))
-                    {
-                        lb_promotion = 1;
-                        lb_promotionmove = -1;
-                    }
-                    else
-                    {
-                        lb_promotion = 0;
-                        lb_promotionmove = -1;
 
 #ifndef NDEBUG // print only in debug mode
-                        printf("\nlb\n selectsquare %s\n", lb_square_to_coordinates[lb_selectsquare]);
+                    printf("\nlb\n selectsquare %s\n", lb_square_to_coordinates[lb_selectsquare]);
 #endif
-                        int result = lb_doMove(lb_gui_move_list, lb_selectpiece, lb_selectsquare, lb_promotionmove);
-
-                        if (result)
-                            lb_process_a_move();
-                    }
-                }
-            }
-            else if (lb_capselectpiece != -1)
-            {
-                if (get_bit(lb_cap_piece_options[lb_capselectpiece], sqr))
-                {
-                    lb_selectsquare = sqr;
-#ifdef _WIN64
-#ifndef NDEBUG // print only in debug mode
-                    printf("\nlb\n capselectpiece %c\n", lb_ascii_pieces[lb_capselectpiece]);
-#endif
-#else
-#ifndef NDEBUG // print only in debug mode
-                    printf("\nlb\n capselectpiece %s\n", lb_unicode_pieces[lb_capselectpiece]);
-#endif
-#ifndef NDEBUG // print only in debug mode
-                    printf(" selectsquare %s\n", lb_square_to_coordinates[lb_selectsquare]);
-#endif
-#endif
-                    int result = lb_doPutMove(lb_gui_move_list, lb_selectsquare, lb_capselectpiece);
+                    int result = lb_doMove(lb_gui_move_list, lb_selectpiece, lb_selectsquare, lb_promotionmove);
 
                     if (result)
                         lb_process_a_move();
                 }
             }
         }
-    }
-    // right board
-    else
-    {
-        if (rb_gamestate != PlayGame)
-            return;
-        if (x < rb_brd_col || x > rb_brd_col + BOARD_SIZE)
-            return;
-        int sqrx = get_sqrx(x, SCREEN_WIDTH / 2 + SQUARE_SIZE);
-        int sqry = get_sqry(y);
-#ifndef NDEBUG
-        printf("\nrb\nsqrx: %d, sqry: %d\n", sqrx, sqry);
-#endif
-        int sqr = -1;
-        int on_board = 0;
-        // select square on the board
-        if (sqry >= 0 && sqry <= 7 && sqrx <= 7 && !rb_promotion)
+        else if (lb_capselectpiece != -1)
         {
-            sqr = sqry * 8 + sqrx;
-            on_board = 1;
-            if (rb_human_player == rb_side || rb_human_player == both)
+            if (get_bit(lb_cap_piece_options[lb_capselectpiece], sqr))
             {
-                if (get_bit(rb_move_options[0], sqr))
-                {
-                    rb_selectpiece = sqr;
-                    rb_capselectpiece = -1;
-#ifndef NDEBUG // print only in debug mode
-                    printf("\nrb\n selectpiece %s\n", rb_square_to_coordinates[rb_selectpiece]);
-#endif
-                }
-            }
-        }
-        // select top pieces (black)
-        else if (sqry == -1 && !rb_promotion)
-        {
-            if (rb_side == black && (rb_human_player == black || rb_human_player == both))
-            {
-                if (sqrx >= 0 && sqrx <= 4 && rb_drawcappieces[sqrx + 6])
-                {
-                    rb_capselectpiece = sqrx + 6;
-                    rb_selectpiece = -1;
-                    rb_promotionmove = -1;
-                }
-            }
-        }
-        // select bottom pieces (white)
-        else if (sqry == 8 && !rb_promotion)
-        {
-            if ((rb_human_player == rb_side || rb_human_player == both) && rb_side == white)
-            {
-                if (sqrx >= 0 && sqrx <= 4 && rb_drawcappieces[sqrx])
-                {
-                    rb_capselectpiece = sqrx;
-                    rb_selectpiece = -1;
-                    rb_promotionmove = -1;
-                }
-            }
-        }
-        // select promotion piece bottom (white), top (black)
-        else if ((sqry == 9 || sqry == -2) && rb_promotion && rb_promotionmove == -1)
-        {
-            int col = sqry == -2 ? black : white;
-            int pos = (rb_promotion && sqrx >= 0 && sqrx <= 4) ? sqrx : -1;
-
-            if (pos > -1)
-                rb_promotionmove = promote_pieces[col][pos];
-
-            if (rb_selectpiece != -1 && rb_selectsquare != -1)
-            {
-                int result = rb_doMove(rb_gui_move_list, rb_selectpiece, rb_selectsquare, rb_promotionmove);
-
-                if (result)
-                    rb_process_a_move();
-            }
-        }
-
-        // a square on the board is selected
-        if (on_board)
-        {
-            // a piece on the board is selected
-            if (rb_selectpiece != -1)
-            {
-                if (get_bit(rb_piece_options[rb_selectpiece], sqr))
-                {
-                    rb_selectsquare = sqr;
-                    if ((rb_drawboard[rb_selectpiece] == P && rb_get_rank[sqr] == 7) ||
-                        (rb_drawboard[rb_selectpiece] == p && rb_get_rank[sqr] == 0))
-                    {
-                        rb_promotion = 1;
-                        rb_promotionmove = -1;
-                    }
-                    else
-                    {
-                        rb_promotion = 0;
-                        rb_promotionmove = -1;
-#ifndef NDEBUG // print only in debug mode
-                        printf("\nrb\n selectsquare %s\n", rb_square_to_coordinates[rb_selectsquare]);
-#endif
-                        int result = rb_doMove(rb_gui_move_list, rb_selectpiece, rb_selectsquare, rb_promotionmove);
-
-                        if (result)
-                            rb_process_a_move();
-                    }
-                }
-            }
-            else if (rb_capselectpiece != -1)
-            {
-                if (get_bit(rb_cap_piece_options[rb_capselectpiece], sqr))
-                {
-                    rb_selectsquare = sqr;
+                lb_selectsquare = sqr;
 #ifdef _WIN64
 #ifndef NDEBUG // print only in debug mode
-                    printf("\nrb\n capselectpiece %c\n", rb_ascii_pieces[rb_capselectpiece]);
+                printf("\nlb\n capselectpiece %c\n", lb_ascii_pieces[lb_capselectpiece]);
 #endif
 #else
 #ifndef NDEBUG // print only in debug mode
-                    printf("\nrb\n capselectpiece %s\n", rb_unicode_pieces[rb_capselectpiece]);
+                printf("\nlb\n capselectpiece %s\n", lb_unicode_pieces[lb_capselectpiece]);
 #endif
 #ifndef NDEBUG // print only in debug mode
-                    printf(" selectsquare %s\n", rb_square_to_coordinates[rb_selectsquare]);
+                printf(" selectsquare %s\n", lb_square_to_coordinates[lb_selectsquare]);
 #endif
 #endif
-                    int result = rb_doPutMove(rb_gui_move_list, rb_selectsquare, rb_capselectpiece);
+                int result = lb_doPutMove(lb_gui_move_list, lb_selectsquare, lb_capselectpiece);
+
+                if (result)
+                    lb_process_a_move();
+            }
+        }
+    }
+}
+// rightboard
+void rb_process_mouseclick(int x, int y)
+{
+    if (rb_gamestate != PlayGame)
+        return;
+    if (x < rb_brd_col || x > rb_brd_col + BOARD_SIZE)
+        return;
+    int sqrx = rb_get_sqrx(x, SCREEN_WIDTH / 2 + SQUARE_SIZE);
+    int sqry = rb_get_sqry(y);
+#ifndef NDEBUG
+    printf("\nrb\nsqrx: %d, sqry: %d\n", sqrx, sqry);
+#endif
+    int sqr = -1;
+    int on_board = 0;
+    // select square on the board
+    if (sqry >= 0 && sqry <= 7 && sqrx <= 7 && !rb_promotion)
+    {
+        sqr = sqry * 8 + sqrx;
+        on_board = 1;
+        if (rb_human_player == rb_side || rb_human_player == both)
+        {
+            if (get_bit(rb_move_options[0], sqr))
+            {
+                rb_selectpiece = sqr;
+                rb_capselectpiece = -1;
+#ifndef NDEBUG // print only in debug mode
+                printf("\nrb\n selectpiece %s\n", rb_square_to_coordinates[rb_selectpiece]);
+#endif
+            }
+        }
+    }
+    // select top pieces (black)
+    else if (sqry == -1 && !rb_promotion)
+    {
+        if (rb_side == black && (rb_human_player == black || rb_human_player == both))
+        {
+            if (sqrx >= 0 && sqrx <= 4 && rb_drawcappieces[sqrx + 6])
+            {
+                rb_capselectpiece = sqrx + 6;
+                rb_selectpiece = -1;
+                rb_promotionmove = -1;
+            }
+        }
+    }
+    // select bottom pieces (white)
+    else if (sqry == 8 && !rb_promotion)
+    {
+        if ((rb_human_player == rb_side || rb_human_player == both) && rb_side == white)
+        {
+            if (sqrx >= 0 && sqrx <= 4 && rb_drawcappieces[sqrx])
+            {
+                rb_capselectpiece = sqrx;
+                rb_selectpiece = -1;
+                rb_promotionmove = -1;
+            }
+        }
+    }
+    // select promotion piece bottom (white), top (black)
+    else if ((sqry == 9 || sqry == -2) && rb_promotion && rb_promotionmove == -1)
+    {
+        int col = sqry == -2 ? black : white;
+        int pos = (rb_promotion && sqrx >= 0 && sqrx <= 4) ? sqrx : -1;
+
+        if (pos > -1)
+            rb_promotionmove = promote_pieces[col][pos];
+
+        if (rb_selectpiece != -1 && rb_selectsquare != -1)
+        {
+            int result = rb_doMove(rb_gui_move_list, rb_selectpiece, rb_selectsquare, rb_promotionmove);
+
+            if (result)
+                rb_process_a_move();
+        }
+    }
+
+    // a square on the board is selected
+    if (on_board)
+    {
+        // a piece on the board is selected
+        if (rb_selectpiece != -1)
+        {
+            if (get_bit(rb_piece_options[rb_selectpiece], sqr))
+            {
+                rb_selectsquare = sqr;
+                if ((rb_drawboard[rb_selectpiece] == P && rb_get_rank[sqr] == 7) ||
+                    (rb_drawboard[rb_selectpiece] == p && rb_get_rank[sqr] == 0))
+                {
+                    rb_promotion = 1;
+                    rb_promotionmove = -1;
+                }
+                else
+                {
+                    rb_promotion = 0;
+                    rb_promotionmove = -1;
+#ifndef NDEBUG // print only in debug mode
+                    printf("\nrb\n selectsquare %s\n", rb_square_to_coordinates[rb_selectsquare]);
+#endif
+                    int result = rb_doMove(rb_gui_move_list, rb_selectpiece, rb_selectsquare, rb_promotionmove);
 
                     if (result)
                         rb_process_a_move();
                 }
+            }
+        }
+        else if (rb_capselectpiece != -1)
+        {
+            if (get_bit(rb_cap_piece_options[rb_capselectpiece], sqr))
+            {
+                rb_selectsquare = sqr;
+#ifdef _WIN64
+#ifndef NDEBUG // print only in debug mode
+                printf("\nrb\n capselectpiece %c\n", rb_ascii_pieces[rb_capselectpiece]);
+#endif
+#else
+#ifndef NDEBUG // print only in debug mode
+                printf("\nrb\n capselectpiece %s\n", rb_unicode_pieces[rb_capselectpiece]);
+#endif
+#ifndef NDEBUG // print only in debug mode
+                printf(" selectsquare %s\n", rb_square_to_coordinates[rb_selectsquare]);
+#endif
+#endif
+                int result = rb_doPutMove(rb_gui_move_list, rb_selectsquare, rb_capselectpiece);
+
+                if (result)
+                    rb_process_a_move();
             }
         }
     }
@@ -9756,8 +9708,6 @@ void lb_draw_clocktime(int posx, int posy)
     DrawText(number[lb_clocktime[black][3]], posx + 124, posy + 34, 15, BLACK);
     DrawText(number[lb_clocktime[black][4]], posx + 134, posy + 34, 15, BLACK);
 }
-
-// Draw clock time
 // rightboard
 void rb_draw_clocktime(int posx, int posy)
 {
@@ -9796,14 +9746,14 @@ void lb_setup_game()
     lb_gui_pt_pieces_count = 0;
     lb_position_chg = 0;
     memset(lb_game_hashkey, 0ULL, sizeof(lb_game_hashkey));
-    memset(lb_game_moves, 0, sizeof(lb_game_moves));
     memset(lb_gui_move_list, 0, sizeof(lb_gui_move_list));
     memset(lb_gui_pt_pieces, 0, sizeof(lb_gui_pt_pieces));
-
+    lb_count_game_moves[white] = lb_count_game_moves[black] = 0;
+    lb_last_move[white] = lb_last_move[black] = 0;
 
     // set timer settings for the clock
-    lb_timer[white] = lb_timer[black] = game_player_time;
-    lb_plustimer[white] = lb_plustimer[black] = game_player_plus_time;
+    lb_timer[white] = lb_timer[black] = game_time * 60;
+    lb_plustimer[white] = lb_plustimer[black] = game_plus;
     // fill the clock settings
     lb_fill_clocktime(white);
     lb_fill_clocktime(black);
@@ -9835,8 +9785,6 @@ void lb_setup_game()
         lb_drawboard[i] = lb_getPiece(i);
     game_state = StartGame;
 }
-
-// set the game data
 // rightboard
 void rb_setup_game()
 {
@@ -9850,13 +9798,14 @@ void rb_setup_game()
     rb_gui_pt_pieces_count = 0;
     rb_position_chg = 0;
     memset(rb_game_hashkey, 0ULL, sizeof(rb_game_hashkey));
-    memset(rb_game_moves, 0, sizeof(rb_game_moves));
     memset(rb_gui_move_list, 0, sizeof(rb_gui_move_list));
     memset(rb_gui_pt_pieces, 0, sizeof(rb_gui_pt_pieces));
+    rb_count_game_moves[white] = rb_count_game_moves[black] = 0;
+    rb_last_move[white] = rb_last_move[black] = 0;
 
     // set timer settings for the clock
-    rb_timer[white] = rb_timer[black] = game_player_time;
-    rb_plustimer[white] = rb_plustimer[black] = game_player_plus_time;
+    rb_timer[white] = rb_timer[black] = game_time * 60;
+    rb_plustimer[white] = rb_plustimer[black] = game_plus;
     // fill the clock settings
     rb_fill_clocktime(white);
     rb_fill_clocktime(black);
@@ -9889,13 +9838,65 @@ void rb_setup_game()
     game_state = StartGame;
 }
 
+// string tools
+// integer to string
+void intToStr(int N, char *str)
+{
+    int i = 0;
+
+    // Save the copy of the number for sign
+    int sign = N;
+
+    // If the number is negative, make it positive
+    if (N < 0)
+        N = -N;
+
+    // Extract digits from the number and add them to the
+    // string
+    while (N > 0)
+    {
+
+        // Convert integer digit to character and store
+        // it in the str
+        str[i++] = N % 10 + '0';
+        N /= 10;
+    }
+
+    // If the number was negative, add a minus sign to the
+    // string
+    if (sign < 0)
+    {
+        str[i++] = '-';
+    }
+
+    // Null-terminate the string
+    str[i] = '\0';
+
+    // Reverse the string to get the correct order
+    for (int j = 0, k = i - 1; j < k; j++, k--)
+    {
+        char temp = str[j];
+        str[j] = str[k];
+        str[k] = temp;
+    }
+}
+
+// concatenate 2 strings
+char *concat(const char *s1, const char *s2)
+{
+    char *result = malloc(strlen(s1) + strlen(s2) + 1); // +1 for the null-terminator
+    strcpy(result, s1);
+    strcat(result, s2);
+    return result;
+}
+
 // Start program
 int main()
 {
     // set engine on or off
     int use_lb_engine = 1;
     int use_rb_engine = 1;
-
+    
     // init all
     lb_init_all();
     rb_init_all();
@@ -10025,14 +10026,14 @@ int main()
             }
         }
 
-        if (lb_position_chg && (lb_human_player == lb_side || lb_human_player == both))
+        if (lb_position_chg)
         {
             lb_getCapturedPieces();
             lb_fillOptions(lb_gui_move_list, lb_move_options, lb_piece_options, lb_cap_piece_options);
             lb_position_chg = 0;
         }
 
-        if (rb_position_chg && (rb_human_player == rb_side || rb_human_player == both))
+        if (rb_position_chg)
         {
             rb_getCapturedPieces();
             rb_fillOptions(rb_gui_move_list, rb_move_options, rb_piece_options, rb_cap_piece_options);
@@ -10059,20 +10060,30 @@ int main()
                 YELLOW);
             // time choice
             DrawTexture(choice, SQUARE_SIZE * 5, SQUARE_SIZE * 9, RAYWHITE);
+            char *minstr = malloc(sizeof(char) * 4);
+            intToStr(game_time, minstr);
+            char *text = concat("Bedenktijd :", minstr);
+            char *text1 = concat(text, " min (5..30)");
             DrawText(
-                timestr[game_time],
+                text1,
                 SQUARE_SIZE,
                 SQUARE_SIZE * 10 + HALF_SQUARE_SIZE,
                 20,
                 YELLOW);
+            free(minstr);
+            char *plusstr = malloc(sizeof(char) * 4);
+            intToStr(game_plus, plusstr);
+            char *text2 = concat("Per zet :", plusstr);
+            char *text3 = concat(text2, " sec (0..15)");
             // plus time choice
             DrawTexture(plusminbtn, SQUARE_SIZE * 5, SQUARE_SIZE * 10, RAYWHITE);
             DrawText(
-                plusstr[game_plus],
+                text3,
                 SQUARE_SIZE,
                 SQUARE_SIZE * 11 + HALF_SQUARE_SIZE,
                 20,
                 YELLOW);
+            free(plusstr);
             DrawTexture(plusminbtn, SQUARE_SIZE * 5, SQUARE_SIZE * 11, RAYWHITE);
             // enter button
             DrawTexture(enterbtn, SQUARE_SIZE * 9, SQUARE_SIZE * 11, RAYWHITE);
@@ -10222,6 +10233,325 @@ int main()
             }
         }
 
+        if (lb_gamestate == PlayGame)
+        {
+            if (lb_human_player == lb_side2move || lb_human_player == both)
+                    DrawText(
+                        (lb_selectpiece == -1) ? "Click op een geel gemarkeerd veld"
+                                               : "Click op een groen gemarkeerd veld",
+                        lb_brd_col,
+                        SCREEN_HEIGHT - 25,
+                        20,
+                        YELLOW);
+                else if (lb_ai_player == lb_side2move || lb_ai_player == both)
+                    DrawText(
+                        "Ik denk na over mijn zet...",
+                        lb_brd_col,
+                        SCREEN_HEIGHT - 25,
+                        20,
+                        YELLOW);
+            if (rb_human_player == rb_side2move || rb_human_player == both)
+                    DrawText(
+                        (rb_selectpiece == -1) ? "Click op een geel gemarkeerd veld"
+                                               : "Click op een groen gemarkeerd veld",
+                        rb_brd_col,
+                        SCREEN_HEIGHT - 25,
+                        20,
+                        YELLOW);
+                else if (rb_ai_player == rb_side2move || rb_ai_player == both)
+                    DrawText(
+                        "Ik denk na over mijn zet...",
+                        rb_brd_col,
+                        SCREEN_HEIGHT - 25,
+                        20,
+                        YELLOW);
+        }
+
+        // draw the last move played
+        // for black
+        // leftboard
+        if (lb_count_game_moves[black] > 0)
+        {
+            char text0[3];
+            intToStr(lb_count_game_moves[black], text0);
+            int sqf = get_move_source(lb_last_move[black]);
+            int sqt = get_move_target(lb_last_move[black]);
+            int pic = get_move_piece(lb_last_move[black]);
+            int pp = get_move_promoted(lb_last_move[black]);
+            int cap = get_move_capture(lb_last_move[black]);
+            int ep = get_move_enpassant(lb_last_move[black]);
+            int cas = get_move_castling(lb_last_move[black]);
+
+            int posx = lb_brd_col;
+            int posy = lb_brd_row + BOARD_SIZE + SQUARE_SIZE;
+            char *pstr[12] = {" ", "P", "L", "T", "D", "K", " ", "P", "L", "T", "D", "K"};
+            
+            DrawText(
+                text0,
+                posx,
+                posy,
+                18,
+                LIGHTGRAY);        
+                
+            if (cas) // castle move
+            {
+                if (sqt == g8)
+                    DrawText(
+                        "O-O",
+                        posx + 30,
+                        posy,
+                        18,
+                        LIGHTGRAY);
+                else
+                    DrawText(
+                        "O-O-O",
+                        posx + 30,
+                        posy,
+                        18,
+                        LIGHTGRAY);
+            } 
+            else if (sqf == sqt) // put_move 
+            {
+                char *text1 = concat(pstr[pic], " -->");
+                char *text2 = concat(text1, lb_square_to_coordinates[sqt]);
+                DrawText(
+                    text2,
+                    posx + 30,
+                    posy,
+                    18,
+                    LIGHTGRAY);
+            }
+            else // normal move
+            {
+                char *capstr = cap ? "x" : "-";
+                char *text1 = concat(pstr[pic], lb_square_to_coordinates[sqf]); 
+                char *text2 = concat(text1, capstr);
+                char *text3 = concat(text2, lb_square_to_coordinates[sqt]);
+                char *prostr = pp ? concat("=", pstr[pp]) : " ";
+                char *epstr = ep ? "ep" : " ";
+                text3 = concat(text3, prostr);
+                text3 = concat(text3, epstr);
+                DrawText(
+                    text3,
+                    posx + 30,
+                    posy,
+                    18,
+                    LIGHTGRAY);
+            }
+        }
+        // rightboard
+        if (rb_count_game_moves[black] > 0)
+        {
+            char text0[3];
+            intToStr(rb_count_game_moves[black], text0);
+            int sqf = get_move_source(rb_last_move[black]);
+            int sqt = get_move_target(rb_last_move[black]);
+            int pic = get_move_piece(rb_last_move[black]);
+            int pp = get_move_promoted(rb_last_move[black]);
+            int cap = get_move_capture(rb_last_move[black]);
+            int ep = get_move_enpassant(rb_last_move[black]);
+            int cas = get_move_castling(rb_last_move[black]);
+
+            int posx = rb_brd_col;
+            int posy = HALF_SQUARE_SIZE;
+            char *pstr[12] = {" ", "P", "L", "T", "D", "K", " ", "P", "L", "T", "D", "K"};
+            
+            DrawText(
+                text0,
+                posx,
+                posy,
+                18,
+                LIGHTGRAY);        
+                
+            if (cas) // castle move
+            {
+                if (sqt == g8)
+                    DrawText(
+                        "O-O",
+                        posx + 30,
+                        posy,
+                        18,
+                        LIGHTGRAY);
+                else
+                    DrawText(
+                        "O-O-O",
+                        posx + 30,
+                        posy,
+                        18,
+                        LIGHTGRAY);
+            } 
+            else if (sqf == sqt) // put_move 
+            {
+                char *text1 = concat(pstr[pic], " -->");
+                char *text2 = concat(text1, rb_square_to_coordinates[sqt]);
+                DrawText(
+                    text2,
+                    posx + 30,
+                    posy,
+                    18,
+                    LIGHTGRAY);
+            }
+            else // normal move
+            {
+                char *capstr = cap ? "x" : "-";
+                char *text1 = concat(pstr[pic], rb_square_to_coordinates[sqf]); 
+                char *text2 = concat(text1, capstr);
+                char *text3 = concat(text2, rb_square_to_coordinates[sqt]);
+                char *prostr = pp ? concat("=", pstr[pp]) : " ";
+                char *epstr = ep ? "ep" : " ";
+                text3 = concat(text3, prostr);
+                text3 = concat(text3, epstr);
+                DrawText(
+                    text3,
+                    posx + 30,
+                    posy,
+                    18,
+                    LIGHTGRAY);
+            }
+        }
+
+        // for white
+        // leftboard
+        if (lb_count_game_moves[white] > 0)
+        {
+            char text0[3];
+            intToStr(lb_count_game_moves[white], text0);
+            int sqf = get_move_source(lb_last_move[white]);
+            int sqt = get_move_target(lb_last_move[white]);
+            int pic = get_move_piece(lb_last_move[white]);
+            int pp = get_move_promoted(lb_last_move[white]);
+            int cap = get_move_capture(lb_last_move[white]);
+            int ep = get_move_enpassant(lb_last_move[white]);
+            int cas = get_move_castling(lb_last_move[white]);
+
+            int posx = lb_brd_col;
+            int posy = HALF_SQUARE_SIZE;
+            char *pstr[12] = {" ", "P", "L", "T", "D", "K", " ", "P", "L", "T", "D", "K"};
+            
+            DrawText(
+                text0,
+                posx,
+                posy,
+                18,
+                WHITE);        
+                
+            if (cas) // castle move
+            {
+                if (sqt == g1)
+                    DrawText(
+                        "O-O",
+                        posx + 30,
+                        posy,
+                        18,
+                        WHITE);
+                else
+                    DrawText(
+                        "O-O-O",
+                        posx + 30,
+                        posy,
+                        18,
+                        WHITE);
+            } 
+            else if (sqf == sqt) // put_move 
+            {
+                char *text1 = concat(pstr[pic], " -->");
+                char *text2 = concat(text1, lb_square_to_coordinates[sqt]);
+                DrawText(
+                    text2,
+                    posx + 30,
+                    posy,
+                    18,
+                    LIGHTGRAY);
+            }
+            else
+            {
+                char *capstr = cap ? "x" : "-";
+                char *text1 = concat(pstr[pic], lb_square_to_coordinates[sqf]); 
+                char *text2 = concat(text1, capstr);
+                char *text3 = concat(text2, lb_square_to_coordinates[sqt]);
+                char *prostr = pp ? concat("=", pstr[pp]) : " ";
+                char *epstr = ep ? "ep" : " ";
+                text3 = concat(text3, prostr);
+                text3 = concat(text3, epstr);
+                DrawText(
+                    text3,
+                    posx + 30,
+                    posy,
+                    18,
+                    WHITE);
+            }
+        }
+        // rightboard
+        if (rb_count_game_moves[white] > 0)
+        {
+            char text0[3];
+            intToStr(rb_count_game_moves[white], text0);
+            int sqf = get_move_source(rb_last_move[white]);
+            int sqt = get_move_target(rb_last_move[white]);
+            int pic = get_move_piece(rb_last_move[white]);
+            int pp = get_move_promoted(rb_last_move[white]);
+            int cap = get_move_capture(rb_last_move[white]);
+            int ep = get_move_enpassant(rb_last_move[white]);
+            int cas = get_move_castling(rb_last_move[white]);
+
+            int posx = rb_brd_col;
+            int posy = rb_brd_row + BOARD_SIZE + SQUARE_SIZE;
+            char *pstr[12] = {" ", "P", "L", "T", "D", "K", " ", "P", "L", "T", "D", "K"};
+            
+            DrawText(
+                text0,
+                posx,
+                posy,
+                18,
+                WHITE);        
+                
+            if (cas) // castle move
+            {
+                if (sqt == g1)
+                    DrawText(
+                        "O-O",
+                        posx + 30,
+                        posy,
+                        18,
+                        WHITE);
+                else
+                    DrawText(
+                        "O-O-O",
+                        posx + 30,
+                        posy,
+                        18,
+                        WHITE);
+            } 
+            else if (sqf == sqt) // put_move 
+            {
+                char *text1 = concat(pstr[pic], " -->");
+                char *text2 = concat(text1, rb_square_to_coordinates[sqt]);
+                DrawText(
+                    text2,
+                    posx + 30,
+                    posy,
+                    18,
+                    LIGHTGRAY);
+            }
+            else
+            {
+                char *capstr = cap ? "x" : "-";
+                char *text1 = concat(pstr[pic], rb_square_to_coordinates[sqf]); 
+                char *text2 = concat(text1, capstr);
+                char *text3 = concat(text2, rb_square_to_coordinates[sqt]);
+                char *prostr = pp ? concat("=", pstr[pp]) : " ";
+                char *epstr = ep ? "ep" : " ";
+                text3 = concat(text3, prostr);
+                text3 = concat(text3, epstr);
+                DrawText(
+                    text3,
+                    posx + 30,
+                    posy,
+                    18,
+                    WHITE);
+            }
+        }
+
         EndDrawing();
 
         // keypress
@@ -10229,8 +10559,6 @@ int main()
         {
             if (game_state == Input)
             {
-                game_player_time = timeint[game_time];
-                game_player_plus_time = plusint[game_plus];
                 lb_setup_game();
                 rb_setup_game();
             }
@@ -10246,8 +10574,6 @@ int main()
         {
             if (game_state == Input)
             {
-                game_player_time = timeint[game_time];
-                game_player_plus_time = plusint[game_plus];
                 lb_setup_game();
                 rb_setup_game();
                 lb_human_player = both;
@@ -10276,7 +10602,7 @@ int main()
                          y >= SQUARE_SIZE * 10 &&
                          y < SQUARE_SIZE * 11)
                 {
-                    if (game_time < 2)
+                    if (game_time < 30)
                     {
                         game_time++;
                     }
@@ -10286,7 +10612,7 @@ int main()
                          y >= SQUARE_SIZE * 10 &&
                          y < SQUARE_SIZE * 11)
                 {
-                    if (game_time > 0)
+                    if (game_time > 5)
                     {
                         game_time--;
                     }
@@ -10296,7 +10622,7 @@ int main()
                          y >= SQUARE_SIZE * 11 &&
                          y < SQUARE_SIZE * 12)
                 {
-                    if (game_plus < 3)
+                    if (game_plus < 15)
                     {
                         game_plus++;
                     }
@@ -10316,8 +10642,6 @@ int main()
                          y >= SQUARE_SIZE * 11 &&
                          y < SQUARE_SIZE * 13)
                 {
-                    game_player_time = timeint[game_time];
-                    game_player_plus_time = plusint[game_plus];
                     lb_setup_game();
                     rb_setup_game();
                 }
@@ -10326,11 +10650,11 @@ int main()
 
             if (lb_human_player == lb_side || lb_human_player == both)
             {
-                process_mouseclick(left, x, y);
+                lb_process_mouseclick(x, y);
             }
             if (rb_human_player == rb_side || rb_human_player == both)
             {
-                process_mouseclick(right, x, y);
+                rb_process_mouseclick(x, y);
             }
         }
 
@@ -10351,7 +10675,8 @@ int main()
                     int bestmove = lb_pv_table[0][0];
                     if (bestmove)
                     {
-                        lb_add_move(lb_game_moves, bestmove);
+                        lb_last_move[lb_side2move] = bestmove;
+                        ++lb_count_game_moves[lb_side2move];
     #ifndef NDEBUG // print only in debug mode
                 // print offset
                         printf("\nlb\n");
@@ -10384,7 +10709,8 @@ int main()
                     int bestmove = rb_pv_table[0][0];
                     if (bestmove)
                     {
-                        rb_add_move(rb_game_moves, bestmove);
+                        rb_last_move[rb_side2move] = bestmove;
+                        ++rb_count_game_moves[rb_side2move];
     #ifndef NDEBUG // print only in debug mode
                 // print offset
                         printf("\nrb\n");
