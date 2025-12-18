@@ -1,0 +1,14 @@
+Mac:
+
+Debug:
+eval cc draughts.c -g -O0 -Wall -framework IOKit -framework Cocoa -framework OpenGL $(pkg-config --libs --cflags raylib) -o debdraughts
+Release:
+eval cc draughts.c -O2 -DNDEBUG -framework IOKit -framework Cocoa -framework OpenGL $(pkg-config --libs --cflags raylib) -o macdraughts
+
+Windows: 
+
+Add libraylib.a file (c:\raylib\raylib\src\libraylib.a) into lib folder, then run the following command:
+Debug:
+gcc draughts.c -o draughts.exe -O1 -Wall -std=c17 -Wno-missing-braces -L ./lib/ -lraylib -lopengl32 -lgdi32 -lwinmm
+Release:
+gcc draughts.c -o windraughts.exe -O2 -DNDEBUG -std=c17 -Wno-missing-braces -L ./lib/ -lraylib -lopengl32 -lgdi32 -lwinmm
