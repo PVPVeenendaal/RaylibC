@@ -35,7 +35,7 @@
 #define MAX_PLUS 30
 #define MIN_PLUS 0
 
-#define title "Draughts in Raylib-C (C)2025 Peter Veenendaal; versie: 0.40"
+#define title "Draughts in Raylib-C (C)2025 Peter Veenendaal; versie: 0.50"
 
 // define min max macros
 #define Max(a, b) ((a) >= (b) ? (a) : (b))
@@ -254,223 +254,65 @@ const int square_rank[51] =
         9, 9, 9, 9, 9,
         10, 10, 10, 10, 10};
 
-const int nx = 0;
-const int dir[4][51] = {
-    {
+const int dir[4][52] = {
+    {   
         // nw
-        nx, // 0
-        nx,
-        nx,
-        nx,
-        nx,
-        nx, // 1..5
-        nx,
-        1,
-        2,
-        3,
-        4, // 6..10
-        6,
-        7,
-        8,
-        9,
-        10, // 11..15
-        nx,
-        11,
-        12,
-        13,
-        14, // 16..20
-        16,
-        17,
-        18,
-        19,
-        20, // 21..25
-        nx,
-        21,
-        22,
-        23,
-        24, // 26..30
-        26,
-        27,
-        28,
-        29,
-        30, // 31..35
-        nx,
-        31,
-        32,
-        33,
-        34, // 36..40
-        36,
-        37,
-        38,
-        39,
-        40, // 41..45
-        nx,
-        41,
-        42,
-        43,
-        44, // 46..50
-    },
+        0,                  // 0 at start
+        0, 0, 0, 0, 0,      // 01 - 05
+        0, 1, 2, 3, 4,      // 06 - 10
+        6, 7, 8, 9, 10,     // 11 - 15
+        0, 11, 12, 13, 14,  // 16 - 20
+        16, 17, 18, 19, 20, // 21 - 25
+        0, 21, 22, 23, 24,  // 26 - 30
+        26, 27, 28, 29, 30, // 31 - 35
+        0, 31, 32, 33, 34,  // 36 - 40
+        36, 37, 38, 39, 40, // 41 - 45
+        0, 41, 42, 43, 44,  // 46 - 50
+        0},
     {
         // ne
-        nx, // 0
-        nx,
-        nx,
-        nx,
-        nx,
-        nx, // 1..5
-        1,
-        2,
-        3,
-        4,
-        5, // 6..10
-        7,
-        8,
-        9,
-        10,
-        nx, // 11..15
-        11,
-        12,
-        13,
-        14,
-        15, // 16..20
-        17,
-        18,
-        19,
-        20,
-        nx, // 21..25
-        21,
-        22,
-        23,
-        24,
-        25, // 26..30
-        27,
-        28,
-        29,
-        30,
-        nx, // 31..35
-        31,
-        32,
-        33,
-        34,
-        35, // 36..40
-        37,
-        38,
-        39,
-        40,
-        nx, // 41..45
-        41,
-        42,
-        43,
-        44,
-        45, // 46..50
-    },
-    {
-        // sw
-        nx, // 0
-        7,
-        8,
-        9,
-        10,
-        nx, // 1..5
-        11,
-        12,
-        13,
-        14,
-        15, // 6..10
-        17,
-        18,
-        19,
-        20,
-        nx, // 11..15
-        21,
-        22,
-        23,
-        24,
-        25, // 16..20
-        27,
-        28,
-        29,
-        30,
-        nx, // 21..25
-        31,
-        32,
-        33,
-        34,
-        35, // 26..30
-        37,
-        38,
-        39,
-        40,
-        nx, // 31..35
-        41,
-        42,
-        43,
-        44,
-        45, // 36..40
-        47,
-        48,
-        49,
-        50,
-        nx, // 41..45
-        nx,
-        nx,
-        nx,
-        nx,
-        nx, // 46..50
+        0,                  // 0 at start
+        0, 0, 0, 0, 0,      //  01 - 05
+        1, 2, 3, 4, 5,      //  06 - 10
+        7, 8, 9, 10, 0,     //  11 - 15
+        11, 12, 13, 14, 15, //  16 - 20
+        17, 18, 19, 20, 0,  //  21 - 25
+        21, 22, 23, 24, 25, //  26 - 30
+        27, 28, 29, 30, 0,  //  31 - 35
+        31, 32, 33, 34, 35, //  36 - 40
+        37, 38, 39, 40, 0,  //  41 - 45
+        41, 42, 43, 44, 45, //  46 - 50
+        0                   // 0 at end
     },
     {
         // se
-        nx, // 0
-        6,
-        7,
-        8,
-        9,
-        10, // 1..5
-        nx,
-        11,
-        12,
-        13,
-        14, // 6..10
-        16,
-        17,
-        18,
-        19,
-        20, // 11..15
-        nx,
-        21,
-        22,
-        23,
-        24, // 16..20
-        26,
-        27,
-        28,
-        29,
-        30, // 21..25
-        nx,
-        31,
-        32,
-        33,
-        34, // 26..30
-        36,
-        37,
-        38,
-        39,
-        40, // 31..35
-        nx,
-        41,
-        42,
-        43,
-        44, // 36..40
-        46,
-        47,
-        48,
-        49,
-        50, // 41..45
-        nx,
-        nx,
-        nx,
-        nx,
-        nx, // 46..50
+        0,                  // 0 at start
+        7, 8, 9, 10, 0,     // 01 - 05
+        11, 12, 13, 14, 15, // 06 - 10
+        17, 18, 19, 20, 0,  // 11 - 15
+        21, 22, 23, 24, 25, // 16 - 20
+        27, 28, 29, 30, 0,  // 21 - 25
+        31, 32, 33, 34, 35, // 26 - 30
+        37, 38, 39, 40, 0,  // 31 - 35
+        41, 42, 43, 44, 45, // 36 - 40
+        47, 48, 49, 50, 0,  // 41 - 45
+        0, 0, 0, 0, 0,      // 46 - 50
+        0                   // 0 at end
+    },
+    {
+        // sw
+        0,                  // 0 at start
+        6, 7, 8, 9, 10,     // 01 - 05
+        0, 11, 12, 13, 14,  // 06 - 10
+        16, 17, 18, 19, 20, // 11 - 15
+        0, 21, 22, 23, 24,  // 16 - 20
+        26, 27, 28, 29, 30, // 21 - 25
+        0, 31, 32, 33, 34,  // 26 - 30
+        36, 37, 38, 39, 40, // 31 - 35
+        0, 41, 42, 43, 44,  // 36 - 40
+        46, 47, 48, 49, 50, // 41 - 45
+        0, 0, 0, 0, 0,      // 46 - 50
+        0                   // 0 at end
     },
 };
 
@@ -615,8 +457,8 @@ U64 all_squares = 0ULL;
 // side to move
 int side;
 
-// pawn directions on the board
-U64 bb_dir[4][51];
+// directions on the board for every square => 0 is outside the board
+U64 bb_dir[4][52];
 
 // set occupancies
 void set_occupancies()
@@ -1046,13 +888,7 @@ void init_bb_dir()
             if (dir[d][sq] == 0)
                 continue;
             else
-            {
                 set_bit(bb_dir[d][sq], dir[d][sq]);
-#ifndef NDEBUG
-                printf("d: %d, sq: %d\n", d, sq);
-                print_bitboard(bb_dir[d][sq]);
-#endif
-            }
 }
 
 // generate next captures
@@ -1111,14 +947,14 @@ void generate_next_captures(moves_t *move_list)
             // white or black king
             for (int d = nw; d <= se; ++d)
             {
-                sqo = sqf;
-                e = empty & bb_dir[d][sqo];
+                e = empty & bb_dir[d][sqf];
+                b = capture & bb_dir[d][sqf];
                 while (e)
                 {
                     sqo = get_ls1b_index(e);
-                    e = empty = bb_dir[d][sqo];
+                    e = empty & bb_dir[d][sqo];
+                    b = capture & bb_dir[d][sqo];
                 }
-                b = capture & bb_dir[d][sqo];
                 if (b)
                 {
                     sqo = get_ls1b_index(b);
@@ -1206,6 +1042,7 @@ void generate_moves(moves_t *movelist)
         for (int d = nw; d <= se; ++d)
         {
             e = empty & bb_dir[d][sqf];
+            b = capture & bb_dir[d][sqf];
             while (e)
             {
                 sqo = get_ls1b_index(e);
@@ -1216,8 +1053,8 @@ void generate_moves(moves_t *movelist)
                     ++movelist->counter;
                 }
                 e = empty & bb_dir[d][sqo];
+                b = capture & bb_dir[d][sqo];
             }
-            b = capture & bb_dir[d][sqo];
             if (b)
             {
                 sqo = get_ls1b_index(b);
@@ -2155,14 +1992,14 @@ int main()
 
     if (TEST)
     {
-        char *testfen = "W:WK24,25,28,32,33,36,37,42,44,45,48,49:B11,15,16,17,29";
+        char *testfen = "W:WK41:B18,28,29,38,43";
         read_fen(testfen);
         generate_moves(gui_movelist);
         fill_gui_board();
         fill_options(gui_movelist);
-        human_player = black;
-        ai_player = white;
-        reversed = 1;
+        human_player = white;
+        ai_player = black;
+        reversed = 0;
         game_state = Game_play;
     }
 
@@ -2403,75 +2240,78 @@ int main()
 
         // draw the last move played
         // for black
-        if (move_counter[black] > 0)
+        if (game_state == Game_play)
         {
-            char text0[3];
-            intToStr(move_counter[black], text0);
-            char *text1 = squarenumber[(int)last_move[black].sqf];
-            char *text2 = squarenumber[(int)last_move[black].sqt];
-            char *text3 = last_move[black].cap ? "x" : "-";
-            int posx = BOARD_COL;
-            int posy = (reversed) ? BOARD_ROW + BOARD_SIZE + 4 : BOARD_ROW - 20;
-            DrawText(
-                text0,
-                posx,
-                posy,
-                18,
-                LIGHTGRAY);
-            DrawText(
-                text1,
-                posx + 30,
-                posy,
-                18,
-                LIGHTGRAY);
-            DrawText(
-                text3,
-                posx + 50,
-                posy,
-                18,
-                LIGHTGRAY);
-            DrawText(
-                text2,
-                posx + 60,
-                posy,
-                18,
-                LIGHTGRAY);
-        }
+            if (move_counter[black] > 0)
+            {
+                char text0[3];
+                intToStr(move_counter[black], text0);
+                char *text1 = squarenumber[(int)last_move[black].sqf];
+                char *text2 = squarenumber[(int)last_move[black].sqt];
+                char *text3 = last_move[black].cap ? "x" : "-";
+                int posx = BOARD_COL;
+                int posy = (reversed) ? BOARD_ROW + BOARD_SIZE + 4 : BOARD_ROW - 20;
+                DrawText(
+                    text0,
+                    posx,
+                    posy,
+                    18,
+                    LIGHTGRAY);
+                DrawText(
+                    text1,
+                    posx + 30,
+                    posy,
+                    18,
+                    LIGHTGRAY);
+                DrawText(
+                    text3,
+                    posx + 50,
+                    posy,
+                    18,
+                    LIGHTGRAY);
+                DrawText(
+                    text2,
+                    posx + 60,
+                    posy,
+                    18,
+                    LIGHTGRAY);
+            }
 
-        // for white
-        if (move_counter[white] > 0)
-        {
-            char text0[3];
-            intToStr(move_counter[white], text0);
-            char *text1 = squarenumber[(int)last_move[white].sqf];
-            char *text2 = squarenumber[(int)last_move[white].sqt];
-            char *text3 = last_move[white].cap ? "x" : "-";
-            int posx = BOARD_COL;
-            int posy = (reversed) ? BOARD_ROW - 20 : BOARD_ROW + BOARD_SIZE + 4;
-            DrawText(
-                text0,
-                posx,
-                posy,
-                18,
-                WHITE);
-            DrawText(
-                text1,
-                posx + 30,
-                posy,
-                18,
-                WHITE);
-            DrawText(
-                text3,
-                posx + 50,
-                posy,
-                18,
-                WHITE);
-            DrawText(
-                text2,
-                posx + 60,
-                posy,
-                18,
-                WHITE);
+            // for white
+            if (move_counter[white] > 0)
+            {
+                char text0[3];
+                intToStr(move_counter[white], text0);
+                char *text1 = squarenumber[(int)last_move[white].sqf];
+                char *text2 = squarenumber[(int)last_move[white].sqt];
+                char *text3 = last_move[white].cap ? "x" : "-";
+                int posx = BOARD_COL;
+                int posy = (reversed) ? BOARD_ROW - 20 : BOARD_ROW + BOARD_SIZE + 4;
+                DrawText(
+                    text0,
+                    posx,
+                    posy,
+                    18,
+                    WHITE);
+                DrawText(
+                    text1,
+                    posx + 30,
+                    posy,
+                    18,
+                    WHITE);
+                DrawText(
+                    text3,
+                    posx + 50,
+                    posy,
+                    18,
+                    WHITE);
+                DrawText(
+                    text2,
+                    posx + 60,
+                    posy,
+                    18,
+                    WHITE);
+            }
         }
 
         // Draw clock time
