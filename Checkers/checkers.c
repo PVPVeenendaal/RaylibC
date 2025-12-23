@@ -21,15 +21,23 @@
 #define get_bit(bitboard, square) ((bitboard) & (1ULL << (square)))
 #define pop_bit(bitboard, square) ((bitboard) &= ~(1ULL << (square)))
 
-#define SCREEN_WIDTH 800
-#define SCREEN_HEIGHT 800
-#define BOARD_ROW 80
-#define BOARD_COL 80
-#define BOARD_SIZE 640
-#define SQUARE_SIZE 80
-#define HALF_SQUARE_SIZE 40
+// draw settings
+#define SCREEN_WIDTH 720
+#define SCREEN_HEIGHT 792
+#define BOARD_ROW 72
+#define BOARD_COL 72
+#define BOARD_SIZE 576
+#define SQUARE_SIZE 72
+#define HALF_SQUARE_SIZE 36
 
-#define title "Checkers in Raylib-C (C)2025 Peter Veenendaal; versie: 1.00"
+// time settings
+#define MAX_TIME 60
+#define MIN_TIME 5
+#define MAX_PLUS 30
+#define MIN_PLUS 0
+
+// title
+#define title "Checkers in Raylib-C (C)2025 Peter Veenendaal; versie: 1.10"
 
 // define min max macros
 #define Max(a, b) ((a) >= (b) ? (a) : (b))
@@ -58,8 +66,8 @@ enum
 {
     nw,
     ne,
-    sw,
     se,
+    sw,
 };
 
 // move_kind
@@ -79,14 +87,14 @@ enum
 
 // squares
 //    0  1  2  3  4  5  6  7
-// 0  -  1  -  3  -  5  -  7
-// 1  8  - 10  - 12  - 14  -
-// 2  - 17  - 19  - 21  - 23
-// 3 24  - 26  - 28  - 30  -
-// 4  - 33  - 35  - 37  - 39
-// 5 40  - 42  - 44  - 46  -
-// 6  - 49  - 51  - 53  - 55
-// 7 56  - 58  - 60  - 62  -
+// 0  -  1  2  3  4  5  6  7
+// 1  8  9 10 11 12 13 14 15
+// 2 16 17 18 19 20 21 22 23
+// 3 24 25 26 27 28 29 30 31
+// 4 32  -  -  -  -  -  -  -
+// 5  -  -  -  -  -  -  -  -
+// 6  -  -  -  -  -  -  -  -
+// 7  -  -  -  -  -  -  -  -
 
 typedef struct
 {
@@ -102,420 +110,266 @@ typedef struct
     int caplength;
 } moves_t;
 
-// squares
-//    0  1  2  3  4  5  6  7
-// 0  -  1  -  3  -  5  -  7
-// 1  8  - 10  - 12  - 14  -
-// 2  - 17  - 19  - 21  - 23
-// 3 24  - 26  - 28  - 30  -
-// 4  - 33  - 35  - 37  - 39
-// 5 40  - 42  - 44  - 46  -
-// 6  - 49  - 51  - 53  - 55
-// 7 56  - 58  - 60  - 62  -
-
-const int squares[8][8] = {
-    {0, 1, 0, 3, 0, 5, 0, 7},
-    {8, 0, 10, 0, 12, 0, 14, 0},
-    {0, 17, 0, 19, 0, 21, 0, 23},
-    {24, 0, 26, 0, 28, 0, 30, 0},
-    {0, 33, 0, 35, 0, 37, 0, 39},
-    {40, 0, 42, 0, 44, 0, 46, 0},
-    {0, 49, 0, 51, 0, 53, 0, 55},
-    {56, 0, 58, 0, 60, 0, 62, 0},
+const int draw_squares[8][8] = {
+    {0, 1, 0, 2, 0, 3, 0, 4},
+    {5, 0, 6, 0, 7, 0, 8, 0},
+    {0, 9, 0, 10, 0, 11, 0, 12},
+    {13, 0, 14, 0, 15, 0, 16, 0},
+    {0, 17, 0, 18, 0, 19, 0, 20},
+    {21, 0, 22, 0, 23, 0, 24, 0},
+    {0, 25, 0, 26, 0, 27, 0, 28},
+    {29, 0, 30, 0, 31, 0, 32, 0},
 };
 
-const int single_sqaures[32] = {
-    1,
-    3,
-    5,
-    7,
-    8,
-    10,
-    12,
-    14,
-    17,
-    19,
-    21,
-    23,
-    24,
-    26,
-    28,
-    30,
-    33,
-    35,
-    37,
-    39,
-    40,
-    42,
-    44,
-    46,
-    49,
-    51,
-    53,
-    55,
-    56,
-    58,
-    60,
-    62,
+const int bb_squares[64] = {
+    0, 1, 0, 2, 0, 3, 0, 4,
+    5, 0, 6, 0, 7, 0, 8, 0,
+    0, 9, 0, 10, 0, 11, 0, 12,
+    13, 0, 14, 0, 15, 0, 16, 0,
+    0, 17, 0, 18, 0, 19, 0, 20,
+    21, 0, 22, 0, 23, 0, 24, 0,
+    0, 25, 0, 26, 0, 27, 0, 28,
+    29, 0, 30, 0, 31, 0, 32, 0,
 };
 
-const int rowcol[64][2] = {
-    {0, 0},
+const int rowcol[33][2] = {
+    {0, 0}, // 0
     {0, 1},
-    {0, 0},
     {0, 3},
-    {0, 0},
     {0, 5},
-    {0, 0},
-    {0, 7}, //  0..7
+    {0, 7}, //  1..4
     {1, 0},
-    {0, 0},
     {1, 2},
-    {0, 0},
     {1, 4},
-    {0, 0},
-    {1, 6},
-    {0, 0}, //  8..15
-    {0, 0},
+    {1, 6}, //  5..8
     {2, 1},
-    {0, 0},
     {2, 3},
-    {0, 0},
     {2, 5},
-    {0, 0},
-    {2, 7}, // 16..23
+    {2, 7}, //  9..12
     {3, 0},
-    {0, 0},
     {3, 2},
-    {0, 0},
     {3, 4},
-    {0, 0},
-    {3, 6},
-    {0, 0}, // 24..31
-    {0, 0},
+    {3, 6}, // 13..16
     {4, 1},
-    {0, 0},
     {4, 3},
-    {0, 0},
     {4, 5},
-    {0, 0},
-    {4, 7}, // 32..39
+    {4, 7}, // 17..20
     {5, 0},
-    {0, 0},
     {5, 2},
-    {0, 0},
     {5, 4},
-    {0, 0},
-    {5, 6},
-    {0, 0}, // 40..47
-    {0, 0},
+    {5, 6}, // 21..24
     {6, 1},
-    {0, 0},
     {6, 3},
-    {0, 0},
     {6, 5},
-    {0, 0},
-    {6, 7}, // 48..55
+    {6, 7}, // 25..28
     {7, 0},
-    {0, 0},
     {7, 2},
-    {0, 0},
     {7, 4},
-    {0, 0},
-    {7, 6},
-    {0, 0}, // 56..63
+    {7, 6}, // 29..32
 };
 
-static char *squarenumber[64] =
-    {"", "01", "", "02", "", "03", "", "04",
-     "05", "", "06", "", "07", "", "08", "",
-     "", "09", "", "10", "", "11", "", "12",
-     "13", "", "14", "", "15", "", "16", "",
-     "", "17", "", "18", "", "19", "", "20",
-     "21", "", "22", "", "23", "", "24", "",
-     "", "25", "", "26", "", "27", "", "28",
-     "29", "", "30", "", "31", "", "32", ""};
+static char *drawnumber[64] =
+    {"  ", "01", "  ", "02", "  ", "03", "  ", "04",
+     "05", "  ", "06", "  ", "07", "  ", "08", "  ",
+     "  ", "09", "  ", "10", "  ", "11", "  ", "12",
+     "13", "  ", "14", "  ", "15", "  ", "16", "  ",
+     "  ", "17", "  ", "18", "  ", "19", "  ", "20",
+     "21", "  ", "22", "  ", "23", "  ", "24", "  ",
+     "  ", "25", "  ", "26", "  ", "27", "  ", "28",
+     "29", "  ", "30", "  ", "31", "  ", "32", "  "};
 
-const int square_rank[64] =
+static char *squarenumber[33] =
+    {"  ",
+     "01", "02", "03", "04",
+     "05", "06", "07", "08",
+     "09", "10", "11", "12",
+     "13", "14", "15", "16",
+     "17", "18", "19", "20",
+     "21", "22", "23", "24",
+     "25", "26", "27", "28",
+     "29", "30", "31", "32"};
+
+const int square_rank[33] =
     {
-        1, 1, 1, 1, 1, 1, 1, 1,
-        2, 2, 2, 2, 2, 2, 2, 2,
-        3, 3, 3, 3, 3, 3, 3, 3,
-        4, 4, 4, 4, 4, 4, 4, 4,
-        5, 5, 5, 5, 5, 5, 5, 5,
-        6, 6, 6, 6, 6, 6, 6, 6,
-        7, 7, 7, 7, 7, 7, 7, 7,
-        8, 8, 8, 8, 8, 8, 8, 8};
+        0,
+        1,
+        1,
+        1,
+        1,
+        2,
+        2,
+        2,
+        2,
+        3,
+        3,
+        3,
+        3,
+        4,
+        4,
+        4,
+        4,
+        5,
+        5,
+        5,
+        5,
+        6,
+        6,
+        6,
+        6,
+        7,
+        7,
+        7,
+        7,
+        8,
+        8,
+        8,
+        8,
+};
 
-const int nx = 0;
-const int dir[4][64] = {
+const int dir[4][33] = {
     {
         // nw
-        nx,
-        0,
-        nx,
-        0,
-        nx,
-        0,
-        nx,
+        0, // 0
         0,
         0,
-        nx,
+        0,
+        0, // 1..4
+        0,
         1,
-        nx,
-        3,
-        nx,
+        2,
+        3, // 5..8
         5,
-        nx,
-        nx,
-        8,
-        nx,
+        6,
+        7,
+        8, // 9..12
+        0,
+        9,
         10,
-        nx,
-        12,
-        nx,
+        11, // 13..16
+        13,
         14,
+        15,
+        16, // 17..20
         0,
-        nx,
         17,
-        nx,
-        19,
-        nx,
+        18,
+        19, // 21..24
         21,
-        nx,
-        nx,
-        24,
-        nx,
+        22,
+        23,
+        24, // 25..28
+        0,
+        25,
         26,
-        nx,
-        28,
-        nx,
-        30,
-        0,
-        nx,
-        33,
-        nx,
-        35,
-        nx,
-        37,
-        nx,
-        nx,
-        40,
-        nx,
-        42,
-        nx,
-        44,
-        nx,
-        46,
-        0,
-        nx,
-        49,
-        nx,
-        51,
-        nx,
-        53,
-        nx,
+        27, // 29..32
     },
     {
         // ne
-        nx,
+        0, // 0
         0,
-        nx,
         0,
-        nx,
         0,
-        nx,
-        0,
+        0, // 1..4
         1,
-        nx,
+        2,
         3,
-        nx,
-        5,
-        nx,
+        4, // 5..8
+        6,
         7,
-        nx,
-        nx,
-        10,
-        nx,
-        12,
-        nx,
-        14,
-        nx,
-        0,
-        17,
-        nx,
-        19,
-        nx,
-        21,
-        nx,
-        23,
-        nx,
-        nx,
-        26,
-        nx,
-        28,
-        nx,
-        30,
-        nx,
-        0,
-        33,
-        nx,
-        35,
-        nx,
-        37,
-        nx,
-        39,
-        nx,
-        nx,
-        42,
-        nx,
-        44,
-        nx,
-        46,
-        nx,
-        0,
-        49,
-        nx,
-        51,
-        nx,
-        53,
-        nx,
-        55,
-        nx,
-    },
-    {
-        // sw
-        nx,
         8,
-        nx,
+        0, // 9..12
+        9,
         10,
-        nx,
-        12,
-        nx,
+        11,
+        12, // 13..16
         14,
-        0,
-        nx,
+        15,
+        16,
+        0, // 17..20
         17,
-        nx,
+        18,
         19,
-        nx,
-        21,
-        nx,
-        nx,
+        20, // 21..24
+        22,
+        23,
         24,
-        nx,
+        0, // 25..28
+        25,
         26,
-        nx,
-        28,
-        nx,
-        30,
-        0,
-        nx,
-        33,
-        nx,
-        35,
-        nx,
-        37,
-        nx,
-        nx,
-        40,
-        nx,
-        42,
-        nx,
-        44,
-        nx,
-        46,
-        0,
-        nx,
-        49,
-        nx,
-        51,
-        nx,
-        53,
-        nx,
-        nx,
-        56,
-        nx,
-        58,
-        nx,
-        60,
-        nx,
-        62,
-        0,
-        nx,
-        0,
-        nx,
-        0,
-        nx,
-        0,
-        nx,
+        27,
+        28, // 29..32
     },
     {
         // se
-        nx,
+        0, // 0
+        6,
+        7,
+        8,
+        0, // 1..4
+        9,
         10,
-        nx,
-        12,
-        nx,
+        11,
+        12, // 5..8
         14,
-        nx,
+        15,
+        16,
+        0, // 9..12
+        17,
+        18,
+        19,
+        20, // 13..16
+        22,
+        23,
+        24,
+        0, // 17..20
+        25,
+        26,
+        27,
+        28, // 21..24
+        30,
+        31,
+        32,
+        0, // 25..28
+        0,
+        0,
+        0,
+        0, // 29..32
+    },
+    {
+        // sw
+        0, // 0
+        5,
+        6,
+        7,
+        8, // 1..4
+        0,
+        9,
+        10,
+        11, // 5..8
+        13,
+        14,
+        15,
+        16, // 9..12
         0,
         17,
-        nx,
-        19,
-        nx,
+        18,
+        19, // 13..16
         21,
-        nx,
+        22,
         23,
-        nx,
-        nx,
+        24, // 17..20
+        0,
+        25,
         26,
-        nx,
-        28,
-        nx,
+        27, // 21..24
+        29,
         30,
-        nx,
-        0,
-        33,
-        nx,
-        35,
-        nx,
-        37,
-        nx,
-        39,
-        nx,
-        nx,
-        42,
-        nx,
-        44,
-        nx,
-        46,
-        nx,
-        0,
-        49,
-        nx,
-        51,
-        nx,
-        53,
-        nx,
-        55,
-        nx,
-        nx,
-        58,
-        nx,
-        60,
-        nx,
-        62,
-        nx,
+        31,
+        32, // 25..28
         0,
         0,
-        nx,
         0,
-        nx,
-        0,
-        nx,
-        0,
-        nx,
+        0, // 29..32
     },
 };
 
@@ -532,16 +386,16 @@ const int dir[4][64] = {
 
   0  0 0 0 0 0 0 0 0
   1  0 0 0 0 0 0 0 0
-  2  0 0 0 0 0 0 0 0
-  3  0 0 0 0 0 0 0 0
-  4  0 0 0 0 0 0 0 0
-  5  1 0 1 0 1 0 1 0
-  6  0 1 0 1 0 1 0 1
-  7  1 0 1 0 1 0 1 0
+  2  0 0 0 0 0 1 1 1
+  3  1 1 1 1 1 1 1 1
+  4  1 0 0 0 0 0 0 0
+  5  0 0 0 0 0 0 0 0
+  6  0 0 0 0 0 0 0 0
+  7  0 0 0 0 0 0 0 0
 
      0 1 2 3 4 5 6 7
 
-     Bitboard: 6172839697753047040d
+     Bitboard: 8587837440d
 
      White kings
 
@@ -560,9 +414,9 @@ const int dir[4][64] = {
 
      Black pawns
 
-  0  0 1 0 1 0 1 0 1
-  1  1 0 1 0 1 0 1 0
-  2  0 1 0 1 0 1 0 1
+  0  0 1 1 1 1 1 1 1
+  1  1 1 1 1 1 0 0 0
+  2  0 0 0 0 0 0 0 0
   3  0 0 0 0 0 0 0 0
   4  0 0 0 0 0 0 0 0
   5  0 0 0 0 0 0 0 0
@@ -571,7 +425,7 @@ const int dir[4][64] = {
 
      0 1 2 3 4 5 6 7
 
-     Bitboard: 11163050d
+     Bitboard: 8190d
 
      Black kings
 
@@ -592,22 +446,22 @@ const int dir[4][64] = {
 
   0  0 0 0 0 0 0 0 0
   1  0 0 0 0 0 0 0 0
-  2  0 0 0 0 0 0 0 0
-  3  0 0 0 0 0 0 0 0
-  4  0 0 0 0 0 0 0 0
-  5  1 0 1 0 1 0 1 0
-  6  0 1 0 1 0 1 0 1
-  7  1 0 1 0 1 0 1 0
+  2  0 0 0 0 0 1 1 1
+  3  1 1 1 1 1 1 1 1
+  4  1 0 0 0 0 0 0 0
+  5  0 0 0 0 0 0 0 0
+  6  0 0 0 0 0 0 0 0
+  7  0 0 0 0 0 0 0 0
 
      0 1 2 3 4 5 6 7
 
-     Bitboard: 6172839697753047040d
+     Bitboard: 8587837440d
 
      Black occupancies
 
-  0  0 1 0 1 0 1 0 1
-  1  1 0 1 0 1 0 1 0
-  2  0 1 0 1 0 1 0 1
+  0  0 1 1 1 1 1 1 1
+  1  1 1 1 1 1 0 0 0
+  2  0 0 0 0 0 0 0 0
   3  0 0 0 0 0 0 0 0
   4  0 0 0 0 0 0 0 0
   5  0 0 0 0 0 0 0 0
@@ -616,36 +470,36 @@ const int dir[4][64] = {
 
      0 1 2 3 4 5 6 7
 
-     Bitboard: 11163050d
+     Bitboard: 8190d
 
      Both occupancies
 
-  0  0 1 0 1 0 1 0 1
-  1  1 0 1 0 1 0 1 0
-  2  0 1 0 1 0 1 0 1
-  3  0 0 0 0 0 0 0 0
-  4  0 0 0 0 0 0 0 0
-  5  1 0 1 0 1 0 1 0
-  6  0 1 0 1 0 1 0 1
-  7  1 0 1 0 1 0 1 0
+  0  0 1 1 1 1 1 1 1
+  1  1 1 1 1 1 0 0 0
+  2  0 0 0 0 0 1 1 1
+  3  1 1 1 1 1 1 1 1
+  4  1 0 0 0 0 0 0 0
+  5  0 0 0 0 0 0 0 0
+  6  0 0 0 0 0 0 0 0
+  7  0 0 0 0 0 0 0 0
 
      0 1 2 3 4 5 6 7
 
-     Bitboard: 6172839697764210090d
+     Bitboard: 8587845630d
 
      All squares
-  0  0 1 0 1 0 1 0 1
-  1  1 0 1 0 1 0 1 0
-  2  0 1 0 1 0 1 0 1
-  3  1 0 1 0 1 0 1 0
-  4  0 1 0 1 0 1 0 1
-  5  1 0 1 0 1 0 1 0
-  6  0 1 0 1 0 1 0 1
-  7  1 0 1 0 1 0 1 0
+  0  0 1 1 1 1 1 1 1
+  1  1 1 1 1 1 1 1 1
+  2  1 1 1 1 1 1 1 1
+  3  1 1 1 1 1 1 1 1
+  4  1 0 0 0 0 0 0 0
+  5  0 0 0 0 0 0 0 0
+  6  0 0 0 0 0 0 0 0
+  7  0 0 0 0 0 0 0 0
 
      0 1 2 3 4 5 6 7
 
-     Bitboard: 6172840429334713770d
+     Bitboard: 8589934590d
 */
 
 // piece bitboards
@@ -661,7 +515,7 @@ U64 all_squares = 0ULL;
 int side;
 
 // directions on the board
-U64 bb_dir[4][64];
+U64 bb_dir[4][33];
 
 // set occupancies
 void set_occupancies()
@@ -685,7 +539,7 @@ void printBoard()
         printf(" %d ", r);
         for (int c = 0; c < SIZE; c++)
         {
-            int sq = squares[r][c];
+            int sq = draw_squares[r][c];
             if (sq == 0)
                 printf("   ");
             else if (get_bit(bitboards[wPawn], sq))
@@ -774,6 +628,15 @@ void intToStr(int N, char *str)
         str[j] = str[k];
         str[k] = temp;
     }
+}
+
+// concatenate 2 strings
+char *concat(const char *s1, const char *s2)
+{
+    char *result = malloc(strlen(s1) + strlen(s2) + 1); // +1 for the null-terminator
+    strcpy(result, s1);
+    strcat(result, s2);
+    return result;
 }
 
 /**********************************\
@@ -869,34 +732,22 @@ void wrong_fenstr(char *fenstr)
     printf("Wrong fenstr: %s", fenstr);
 }
 
-// 32 squares -> bitboards
-int sqbb[33] = {
-    0,
-    1, 3, 5, 7,
-    8, 10, 12, 14,
-    17, 19, 21, 23,
-    24, 26, 28, 30,
-    33, 35, 37, 39,
-    40, 42, 44, 46,
-    49, 51, 53, 55,
-    56, 58, 60, 62};
-
 // fill the bitboards from the fenstring
 void set_game_bitboards(int color, int king, int sq)
 {
     if (color == white)
     {
         if (king)
-            set_bit(bitboards[wKing], sqbb[sq]);
+            set_bit(bitboards[wKing], sq);
         else
-            set_bit(bitboards[wPawn], sqbb[sq]);
+            set_bit(bitboards[wPawn], sq);
     }
     else
     {
         if (king)
-            set_bit(bitboards[bKing], sqbb[sq]);
+            set_bit(bitboards[bKing], sq);
         else
-            set_bit(bitboards[bPawn], sqbb[sq]);
+            set_bit(bitboards[bPawn], sq);
     }
 }
 
@@ -1066,9 +917,9 @@ void init_board()
     read_fen("B:W21,22,23,24,25,26,27,28,29,30,31,32:B1,2,3,4,5,6,7,8,9,10,11,12");
 
     all_squares = 0ULL;
-    for (int i = 0; i < 32; ++i)
+    for (int i = 1; i <= 32; ++i)
     {
-        set_bit(all_squares, single_sqaures[i]);
+        set_bit(all_squares, i);
     }
 
     for (int i = 0; i < 4; ++i)
@@ -1091,8 +942,8 @@ void init_bb_dir()
 {
     memset(bb_dir, 0ULL, sizeof(bb_dir));
 
-    for (int d = nw; d <= se; ++d)
-        for (int sq = 0; sq < 64; ++sq)
+    for (int d = nw; d <= sw; ++d)
+        for (int sq = 0; sq < 33; ++sq)
             if (dir[d][sq] == 0)
                 continue;
             else
@@ -1127,13 +978,13 @@ void generate_next_captures(moves_t *move_list)
         sqf = m.sqt;
         if (piece == wPawn || piece == bPawn)
         {
-            dirP1 = side == white ? nw : sw;
-            dirP2 = side == white ? ne : se;
+            dirP1 = side == white ? nw : se;
+            dirP2 = side == white ? ne : sw;
         }
         else
         {
             dirP1 = nw;
-            dirP2 = se;
+            dirP2 = sw;
         }
         for (int d = dirP1; d <= dirP2; ++d)
         {
@@ -1173,8 +1024,8 @@ void generate_moves(moves_t *movelist)
     U64 empty = ~occupancies[both] & all_squares;
     U64 pawns = side == white ? bitboards[wPawn] : bitboards[bPawn];
     U64 kings = side == white ? bitboards[wKing] : bitboards[bKing];
-    int dirP1 = side == white ? nw : sw;
-    int dirP2 = side == white ? ne : se;
+    int dirP1 = side == white ? nw : se;
+    int dirP2 = side == white ? ne : sw;
     int sqf, sqt, sqo;
 
     while (pawns)
@@ -1218,7 +1069,7 @@ void generate_moves(moves_t *movelist)
     while (kings)
     {
         sqf = get_ls1b_index(kings);
-        for (int d = nw; d <= se; ++d)
+        for (int d = nw; d <= sw; ++d)
         {
             U64 b = capture & bb_dir[d][sqf];
             if (b)
@@ -1964,13 +1815,14 @@ static int thread_busy = 0;
 // fill the gui_board for drawing
 void fill_gui_board()
 {
+    int sq = 0;
     for (int row = 0; row < SIZE; ++row)
         for (int col = 0; col < SIZE; ++col)
             if ((row + col) % 2 == 0)
                 guiboard[row][col] = 'x';
             else
             {
-                int sq = row * 8 + col;
+                ++sq;
                 if (get_bit(bitboards[wPawn], sq))
                     guiboard[row][col] = 'w';
                 else if (get_bit(bitboards[bPawn], sq))
@@ -2067,21 +1919,21 @@ void process_mouseclick(const int x, const int y, moves_t *movelist)
     {
         if (selected_piece == 99)
         {
-            if (get_bit(move_options, sqr))
+            if (get_bit(move_options, bb_squares[sqr]))
             {
-                selected_piece = sqr;
+                selected_piece = bb_squares[sqr];
 #ifndef NDEBUG // print only in debug mode
-                printf("\n selectpiece (row %d col %d)\n", rowcol[sqr][0], rowcol[sqr][1]);
+                printf("\n selectpiece (row %d col %d)\n", rowcol[bb_squares[sqr]][0], rowcol[bb_squares[sqr]][1]);
 #endif
             }
         }
         else
         {
-            if (get_bit(square_options[selected_piece], sqr))
+            if (get_bit(square_options[selected_piece], bb_squares[sqr]))
             {
-                selected_square = sqr;
+                selected_square = bb_squares[sqr];
 #ifndef NDEBUG // print only in debug mode
-                printf("\n selectsquare (row %d col %d)\n", rowcol[sqr][0], rowcol[sqr][1]);
+                printf("\n selectsquare (row %d col %d)\n", rowcol[bb_squares[sqr]][0], rowcol[bb_squares[sqr]][1]);
 #endif
                 process_move(selected_piece, selected_square, movelist);
                 selected_piece = 99;
@@ -2089,11 +1941,11 @@ void process_mouseclick(const int x, const int y, moves_t *movelist)
                 fill_gui_board();
                 fill_options(movelist);
             }
-            else if (get_bit(move_options, sqr))
+            else if (get_bit(move_options, bb_squares[sqr]))
             {
                 selected_piece = sqr;
 #ifndef NDEBUG // print only in debug mode
-                printf("\n selectpiece (row %d col %d)\n", rowcol[sqr][0], rowcol[sqr][1]);
+                printf("\n selectpiece (row %d col %d)\n", rowcol[bb_squares[sqr]][0], rowcol[bb_squares[sqr]][1]);
 #endif
             }
         }
@@ -2104,8 +1956,8 @@ void process_mouseclick(const int x, const int y, moves_t *movelist)
 void new_game(const int state, moves_t *movelist)
 {
     // set timer settings for the clock
-    timer[white] = timer[black] = 900;
-    plustimer[white] = plustimer[black] = 3;
+    timer[white] = timer[black] = 600;
+    plustimer[white] = plustimer[black] = 0;
     thinktimer[white] = thinktimer[black] = 0;
     // fill the clock settings
     fill_clocktime(white);
@@ -2185,7 +2037,7 @@ int main()
     img_bking.height = img_bking.width = SQUARE_SIZE;
     Texture2D img_clock = LoadTexture("./assets/Clock.png");
     img_clock.height = SQUARE_SIZE;
-    img_clock.width = SQUARE_SIZE * 2;
+    img_clock.width = SQUARE_SIZE * 2 + HALF_SQUARE_SIZE;
     Texture2D img_back = LoadTexture("./assets/back.png");
     img_back.height = img_back.width = BOARD_SIZE;
     Texture2D img_choice = LoadTexture("./assets/Choice.png");
@@ -2295,10 +2147,10 @@ int main()
                     if (game_state == Game_play && (human_player == gui_side || human_player == both))
                     {
                         int sq = (reversed) ? (7 - row) * 8 + 7 - col : row * 8 + col;
-                        U64 pbit = selected_piece == 99 ? get_bit(move_options, sq) : selected_piece == sq ? 1ULL
+                        U64 pbit = selected_piece == 99 ? get_bit(move_options, bb_squares[sq]) : selected_piece == bb_squares[sq] ? 1ULL
                                                                                                            : 0ULL;
-                        U64 sbit = selected_piece == 99 ? 0ULL : get_bit(square_options[selected_piece], sq);
-                        U64 cbit = selected_piece == 99 ? 0ULL : get_bit(cap_options[selected_piece], sq);
+                        U64 sbit = selected_piece == 99 ? 0ULL : get_bit(square_options[selected_piece], bb_squares[sq]);
+                        U64 cbit = selected_piece == 99 ? 0ULL : get_bit(cap_options[selected_piece], bb_squares[sq]);
                         if (pbit)
                         {
                             for (int d = 0; d < 3; ++d)
@@ -2337,7 +2189,7 @@ int main()
             {
                 int sq = reversed ? 63 - (row * 8 + col) : row * 8 + col;
                 DrawText(
-                    squarenumber[sq],
+                    drawnumber[sq],
                     BOARD_COL + SQUARE_SIZE * col + 2,
                     BOARD_ROW + SQUARE_SIZE * row + 2,
                     10,
@@ -2349,13 +2201,24 @@ int main()
             DrawTexture(
                 img_choice,
                 0,
-                BOARD_ROW + BOARD_SIZE,
-                RAYWHITE
-            );
+                SCREEN_HEIGHT - SQUARE_SIZE,
+                RAYWHITE);
             DrawText(
                 "Kies: F5=Wit, F6=Zwart, F7=Beide, F8=Auto",
                 BOARD_COL,
                 SCREEN_HEIGHT - 25,
+                20,
+                YELLOW);
+            DrawText(
+                "Tijd per spel: A=+5min, B=-5min, C=+1min, D=-1min",
+                BOARD_COL,
+                BOARD_ROW + BOARD_SIZE + 5,
+                20,
+                YELLOW);
+            DrawText(
+                "Plustijd per zet: F=+3sec, G=-3sec, H=+1sec, I=-1sec",
+                BOARD_COL,
+                BOARD_ROW + BOARD_SIZE + 25,
                 20,
                 YELLOW);
         }
@@ -2388,84 +2251,87 @@ int main()
                 20,
                 PURPLE);
         }
-        
-        // draw the last move played
-        // for black
-        if (move_counter[black] > 0)
-        {
-            char text0[3];
-            intToStr(move_counter[black], text0);
-            char *text1 = squarenumber[(int)last_move[black].sqf];
-            char *text2 = squarenumber[(int)last_move[black].sqt];
-            char *text3 = last_move[black].cap ? "x" : "-";
-            int posx = BOARD_COL;
-            int posy = (reversed) ? BOARD_ROW + BOARD_SIZE + 4 : BOARD_ROW - 20;
-            DrawText(
-                text0,
-                posx,
-                posy,
-                18,
-                LIGHTGRAY);
-            DrawText(
-                text1,
-                posx + 30,
-                posy,
-                18,
-                LIGHTGRAY);
-            DrawText(
-                text3,
-                posx + 50,
-                posy,
-                18,
-                LIGHTGRAY);
-            DrawText(
-                text2,
-                posx + 60,
-                posy,
-                18,
-                LIGHTGRAY);
-        }
 
-        // for white
-        if (move_counter[white] > 0)
+        if (game_state == Game_play)
         {
-            char text0[3];
-            intToStr(move_counter[white], text0);
-            char *text1 = squarenumber[(int)last_move[white].sqf];
-            char *text2 = squarenumber[(int)last_move[white].sqt];
-            char *text3 = last_move[white].cap ? "x" : "-";
-            int posx = BOARD_COL;
-            int posy = (reversed) ? BOARD_ROW - 20 : BOARD_ROW + BOARD_SIZE + 4;
-            DrawText(
-                text0,
-                posx,
-                posy,
-                18,
-                WHITE);
-            DrawText(
-                text1,
-                posx + 30,
-                posy,
-                18,
-                WHITE);
-            DrawText(
-                text3,
-                posx + 50,
-                posy,
-                18,
-                WHITE);
-            DrawText(
-                text2,
-                posx + 60,
-                posy,
-                18,
-                WHITE);
+            // draw the last move played
+            // for black
+            if (move_counter[black] > 0)
+            {
+                char text0[3];
+                intToStr(move_counter[black], text0);
+                char *text1 = squarenumber[(int)last_move[black].sqf];
+                char *text2 = squarenumber[(int)last_move[black].sqt];
+                char *text3 = last_move[black].cap ? "x" : "-";
+                int posx = BOARD_COL;
+                int posy = (reversed) ? BOARD_ROW + BOARD_SIZE + 4 : BOARD_ROW - 20;
+                DrawText(
+                    text0,
+                    posx,
+                    posy,
+                    18,
+                    LIGHTGRAY);
+                DrawText(
+                    text1,
+                    posx + 30,
+                    posy,
+                    18,
+                    LIGHTGRAY);
+                DrawText(
+                    text3,
+                    posx + 50,
+                    posy,
+                    18,
+                    LIGHTGRAY);
+                DrawText(
+                    text2,
+                    posx + 60,
+                    posy,
+                    18,
+                    LIGHTGRAY);
+            }
+
+            // for white
+            if (move_counter[white] > 0)
+            {
+                char text0[3];
+                intToStr(move_counter[white], text0);
+                char *text1 = squarenumber[(int)last_move[white].sqf];
+                char *text2 = squarenumber[(int)last_move[white].sqt];
+                char *text3 = last_move[white].cap ? "x" : "-";
+                int posx = BOARD_COL;
+                int posy = (reversed) ? BOARD_ROW - 20 : BOARD_ROW + BOARD_SIZE + 4;
+                DrawText(
+                    text0,
+                    posx,
+                    posy,
+                    18,
+                    WHITE);
+                DrawText(
+                    text1,
+                    posx + 30,
+                    posy,
+                    18,
+                    WHITE);
+                DrawText(
+                    text3,
+                    posx + 50,
+                    posy,
+                    18,
+                    WHITE);
+                DrawText(
+                    text2,
+                    posx + 60,
+                    posy,
+                    18,
+                    WHITE);
+            }
         }
 
         // Draw clock time
         char *number[10] = {"0", "1", "2", "3", "4", "5", "6", "7", "8", "9"};
 
-        int posx = BOARD_COL + SQUARE_SIZE * 6;
+        int posx = BOARD_COL + SQUARE_SIZE * 5;
         int posy = 0;
         DrawTexture(img_clock, posx, posy, DARKBROWN);
         DrawRectangle(posx + 16, posy + 30, 130, 20, BROWN);
@@ -2484,6 +2350,17 @@ int main()
         DrawText(mid, posx + 120, posy + 34, 12, WHITE);
         DrawText(number[clocktime[white][3]], posx + 124, posy + 34, 15, WHITE);
         DrawText(number[clocktime[white][4]], posx + 134, posy + 34, 15, WHITE);
+
+        char plus[3];
+        intToStr(plustimer[white], plus);
+        char *txt = plustimer[white] ? concat("+", plus) : "+0";
+        char *txt1 = concat(txt, " sec per zet");
+        DrawText(
+            txt1,
+            posx + 150,
+            posy + 34,
+            15,
+            YELLOW);
 
         EndDrawing();
 
@@ -2527,6 +2404,62 @@ int main()
                 new_game(Game_play, gui_movelist);
             else
                 game_state = Game_play;
+        }
+        else if (IsKeyPressed(KEY_A) && game_state != Game_play)
+        {
+            if (timer[white] + 5 * 60 <= MAX_TIME * 60)
+            {
+                timer[white] = timer[black] = timer[white] + 5 * 60;
+                fill_clocktime(white);
+                fill_clocktime(black);
+            }
+        }
+        else if (IsKeyPressed(KEY_B) && game_state != Game_play)
+        {
+            if (timer[white] - 5 * 60 >= MIN_TIME * 60)
+            {
+                timer[white] = timer[black] = timer[white] - 5 * 60;
+                fill_clocktime(white);
+                fill_clocktime(black);
+            }
+        }
+        else if (IsKeyPressed(KEY_C) && game_state != Game_play)
+        {
+            if (timer[white] + 1 * 60 <= MAX_TIME * 60)
+            {
+                timer[white] = timer[black] = timer[white] + 1 * 60;
+                fill_clocktime(white);
+                fill_clocktime(black);
+            }
+        }
+        else if (IsKeyPressed(KEY_D) && game_state != Game_play)
+        {
+            if (timer[white] - 1 * 60 >= MIN_TIME * 60)
+            {
+                timer[white] = timer[black] = timer[white] - 1 * 60;
+                fill_clocktime(white);
+                fill_clocktime(black);
+            }
+        }
+        else if (IsKeyPressed(KEY_F) && game_state != Game_play)
+        {
+            if (plustimer[white] + 3 <= MAX_PLUS)
+                plustimer[white] = plustimer[black] = plustimer[white] + 3;
+        }
+        else if (IsKeyPressed(KEY_G) && game_state != Game_play)
+        {
+            if (plustimer[white] - 3 >= MIN_PLUS)
+                plustimer[white] = plustimer[black] = plustimer[white] - 3;
+        }
+        else if (IsKeyPressed(KEY_H) && game_state != Game_play)
+        {
+            if (plustimer[white] + 1 <= MAX_PLUS)
+                plustimer[white] = plustimer[black] = plustimer[white] + 1;
+        }
+        else if (IsKeyPressed(KEY_I) && game_state != Game_play)
+        {
+            if (plustimer[white] - 1 >= MIN_PLUS)
+                plustimer[white] = plustimer[black] = plustimer[white] - 1;
         }
         else if (IsKeyPressed(KEY_X) && game_state == Game_play)
         {
