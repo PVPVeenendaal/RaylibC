@@ -4370,12 +4370,18 @@ enum
 // -----------------------------------------------------------------------
 
 // draw sizes
-const int SQUARE_SIZE = 72;
-const int HALF_SQUARE_SIZE = 36;
-const int BOARD_SIZE = 576;
-const int SCREEN_WIDTH = 720;
-const int SCREEN_HEIGHT = 864;
-const int LARGE_PIECE_SIZE = 64;
+#define SQUARE_SIZE 72
+#define HALF_SQUARE_SIZE 36
+#define BOARD_SIZE 576
+#define SCREEN_WIDTH 720
+#define SCREEN_HEIGHT 864
+#define LARGE_PIECE_SIZE 64
+
+// time settings
+#define MAX_TIME 60
+#define MIN_TIME 5
+#define MAX_PLUS 30
+#define MIN_PLUS 0
 
 // pictures
 Texture2D table;
@@ -4502,10 +4508,10 @@ int human_player;
 int press_clock;
 
 // to handle the used time in seconds
-int timer[2];
+int timer[2] = {600, 600};
 
 // add time after each move in seconds
-int plustimer[2];
+int plustimer[2] = {0,0};
 
 // for drawing the time on the clock
 int clocktime[2][5];
@@ -4710,6 +4716,7 @@ void draw_board()
             DrawText(y_co[i], brd_col - HALF_SQUARE_SIZE, brd_row + i * SQUARE_SIZE + HALF_SQUARE_SIZE, 20, WHITE);
         }
     }
+    
     // Draw pieces
     for (int y = 0; y < 8; ++y)
     {
@@ -4844,6 +4851,47 @@ void game_end_check()
                 break;
             }
         }
+
+    
+        // material
+    int count_pieces[12] = {0,0,0,0,0,0,0,0,0,0,0,0};
+    int total_pieces[2] = {0,0};
+    int draw = 0;
+
+    // count the pieces per piecetype
+    for (int i = P; i <= k; ++i)
+    {
+        count_pieces[i] = count_bits(bitboards[i]);
+        if (i <= K)
+            total_pieces[white] += count_pieces[i];
+        else
+            total_pieces[black] += count_pieces[i];
+    }
+
+    if (total_pieces[white] == 1)
+    {
+        if (total_pieces[black] == 1)
+            draw = 1;
+        else if (total_pieces[black] == 2 && (count_pieces[n] == 1 || count_pieces[b] == 1))
+            draw = 1;
+        else if (total_pieces[black] == 3 && (count_pieces[n] == 2))
+            draw = 1;
+    }  
+    else if (total_pieces[white] == 2 && (count_pieces[N] == 1 || count_pieces[B] == 1))
+    {
+        if (total_pieces[black] == 1)
+            draw = 1;
+        else if (total_pieces[black] == 2 && (count_pieces[n] == 1 || count_pieces[b] == 1))
+            draw = 1;
+    }
+    else if (total_pieces[white] == 3 && count_pieces[N] == 2 && total_pieces[black] == 1)
+        draw = 1;
+    
+    if (draw)
+    {
+        gamestate = StopGame;
+        game_end = drawMat;
+    }
 }
 
 // process a move made
@@ -4966,6 +5014,17 @@ void draw_clocktime(int posx, int posy)
     DrawText(mid, posx + 120, posy + 34, 15, BLACK);
     DrawText(number[clocktime[black][3]], posx + 124, posy + 34, 15, BLACK);
     DrawText(number[clocktime[black][4]], posx + 134, posy + 34, 15, BLACK);
+
+    char plus[3];
+    intToStr(plustimer[white], plus);
+    char *txt = plustimer[white] ? concat("+", plus) : "+0";
+    char *txt1 = concat(txt, " sec per zet");
+    DrawText(
+        txt1,
+        posx + 150,
+        posy + 34,
+        15,
+        YELLOW);
 }
 
 // set the game data
@@ -4985,9 +5044,6 @@ void setup_game(int game_color)
     game_time_choice = 10;
     game_plustime_choice = 0;
 
-    // set timer settings for the clock
-    timer[white] = timer[black] = 900;
-    plustimer[white] = plustimer[black] = 3;
     // fill the clock settings
     fill_clocktime(white);
     fill_clocktime(black);
@@ -5039,6 +5095,8 @@ int main()
 
     // init all
     init_all();
+    fill_clocktime(white);
+    fill_clocktime(black);
 
     // initialize raylib
     InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, title);
@@ -5122,7 +5180,7 @@ int main()
             brd_row + BOARD_SIZE - SQUARE_SIZE,
             RAYWHITE);
 
-        int clock_col = brd_col + BOARD_SIZE - SQUARE_SIZE * 2;
+        int clock_col = brd_col + BOARD_SIZE - SQUARE_SIZE * 3;
         int clock_row = 0;
         draw_clocktime(clock_col, clock_row);
         
@@ -5158,10 +5216,32 @@ int main()
         // draw text when the game is finished
         if (gamestate == StartGame || gamestate == StopGame)
         {
-            DrawText("Kies kleur: F5 = Wit, F6 = Zwart, F7 = Beide, F8 = Auto ", SQUARE_SIZE, SCREEN_HEIGHT - 25, 20, YELLOW);
+            DrawText(
+                "Kies kleur: F5 = Wit, F6 = Zwart, F7 = Beide, F8 = Auto ", 
+                SQUARE_SIZE, 
+                SCREEN_HEIGHT - 25, 
+                20, 
+                YELLOW);
+            DrawText(
+                "Tijd per spel: A=+5min, B=-5min, C=+1min, D=-1min",
+                SQUARE_SIZE,
+                SCREEN_HEIGHT - 100,
+                20,
+                YELLOW);
+            DrawText(
+                "Plustijd per zet: F=+3sec, G=-3sec, H=+1sec, I=-1sec",
+                SQUARE_SIZE,
+                SCREEN_HEIGHT - 75,
+                20,
+                YELLOW);
             if (gamestate == StopGame)
             {
-                DrawText(text_game_end[game_end], SQUARE_SIZE, SCREEN_HEIGHT - 50, 20, PURPLE);
+                DrawText(
+                    text_game_end[game_end], 
+                    SQUARE_SIZE, 
+                    SCREEN_HEIGHT - 50, 
+                    20, 
+                    PURPLE);
             }
         }
 
@@ -5331,6 +5411,62 @@ int main()
             setup_game(-1);
             reversed = 0;
             gamestate = PlayGame;
+        }
+        else if (IsKeyPressed(KEY_A) && gamestate != PlayGame)
+        {
+            if (timer[white] + 5 * 60 <= MAX_TIME * 60)
+            {
+                timer[white] = timer[black] = timer[white] + 5 * 60;
+                fill_clocktime(white);
+                fill_clocktime(black);
+            }
+        }
+        else if (IsKeyPressed(KEY_B) && gamestate != PlayGame)
+        {
+            if (timer[white] - 5 * 60 >= MIN_TIME * 60)
+            {
+                timer[white] = timer[black] = timer[white] - 5 * 60;
+                fill_clocktime(white);
+                fill_clocktime(black);
+            }
+        }
+        else if (IsKeyPressed(KEY_C) && gamestate != PlayGame)
+        {
+            if (timer[white] + 1 * 60 <= MAX_TIME * 60)
+            {
+                timer[white] = timer[black] = timer[white] + 1 * 60;
+                fill_clocktime(white);
+                fill_clocktime(black);
+            }
+        }
+        else if (IsKeyPressed(KEY_D) && gamestate != PlayGame)
+        {
+            if (timer[white] - 1 * 60 >= MIN_TIME * 60)
+            {
+                timer[white] = timer[black] = timer[white] - 1 * 60;
+                fill_clocktime(white);
+                fill_clocktime(black);
+            }
+        }
+        else if (IsKeyPressed(KEY_F) && gamestate != PlayGame)
+        {
+            if (plustimer[white] + 3 <= MAX_PLUS)
+                plustimer[white] = plustimer[black] = plustimer[white] + 3;
+        }
+        else if (IsKeyPressed(KEY_G) && gamestate != PlayGame)
+        {
+            if (plustimer[white] - 3 >= MIN_PLUS)
+                plustimer[white] = plustimer[black] = plustimer[white] - 3;
+        }
+        else if (IsKeyPressed(KEY_H) && gamestate != PlayGame)
+        {
+            if (plustimer[white] + 1 <= MAX_PLUS)
+                plustimer[white] = plustimer[black] = plustimer[white] + 1;
+        }
+        else if (IsKeyPressed(KEY_I) && gamestate != PlayGame)
+        {
+            if (plustimer[white] - 1 >= MIN_PLUS)
+                plustimer[white] = plustimer[black] = plustimer[white] - 1;
         }
         else if (IsKeyPressed(KEY_X) && gamestate == PlayGame)
         {
