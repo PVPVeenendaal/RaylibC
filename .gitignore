@@ -47,3 +47,6 @@
 **/deb*
 
 **/.DS_Store
+
+#notation files
+**/*.ntb

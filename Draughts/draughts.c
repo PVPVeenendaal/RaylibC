@@ -35,7 +35,7 @@
 #define MAX_PLUS 30
 #define MIN_PLUS 0
 
-#define title "Draughts in Raylib-C (C)2025 Peter Veenendaal; versie: 0.50"
+#define title "Draughts in Raylib-C (C)2025 Peter Veenendaal; versie: 0.60"
 
 // define min max macros
 #define Max(a, b) ((a) >= (b) ? (a) : (b))
@@ -255,20 +255,19 @@ const int square_rank[51] =
         10, 10, 10, 10, 10};
 
 const int dir[4][52] = {
-    {   
-        // nw
-        0,                  // 0 at start
-        0, 0, 0, 0, 0,      // 01 - 05
-        0, 1, 2, 3, 4,      // 06 - 10
-        6, 7, 8, 9, 10,     // 11 - 15
-        0, 11, 12, 13, 14,  // 16 - 20
-        16, 17, 18, 19, 20, // 21 - 25
-        0, 21, 22, 23, 24,  // 26 - 30
-        26, 27, 28, 29, 30, // 31 - 35
-        0, 31, 32, 33, 34,  // 36 - 40
-        36, 37, 38, 39, 40, // 41 - 45
-        0, 41, 42, 43, 44,  // 46 - 50
-        0},
+    {                    // nw
+     0,                  // 0 at start
+     0, 0, 0, 0, 0,      // 01 - 05
+     0, 1, 2, 3, 4,      // 06 - 10
+     6, 7, 8, 9, 10,     // 11 - 15
+     0, 11, 12, 13, 14,  // 16 - 20
+     16, 17, 18, 19, 20, // 21 - 25
+     0, 21, 22, 23, 24,  // 26 - 30
+     26, 27, 28, 29, 30, // 31 - 35
+     0, 31, 32, 33, 34,  // 36 - 40
+     36, 37, 38, 39, 40, // 41 - 45
+     0, 41, 42, 43, 44,  // 46 - 50
+     0},
     {
         // ne
         0,                  // 0 at start
@@ -1778,6 +1777,43 @@ static int task_ready = 0;
 // flag that indicates that the ai is thinking
 static int thread_busy = 0;
 
+// game notation
+FILE *game_ptr = NULL;
+
+// file for notation
+char file_name[18];
+
+// show text in the terminal
+void show_text()
+{
+    // Create a file pointer and open the file "GFG.txt" in
+    // read mode.
+    FILE *file = fopen("./ned.md", "r");
+
+    // Buffer to store each line of the file.
+    char line[256];
+
+    // Check if the file was opened successfully.
+    if (file != NULL)
+    {
+        // Read each line from the file and store it in the 'line' buffer.
+        while (fgets(line, sizeof(line), file))
+        {
+            // Print each line to the standard output.
+            printf("%s", line);
+        }
+
+        // Close the file stream once all lines have been read.
+        fclose(file);
+    }
+    else
+    {
+        // Print an error message to the standard error
+        // stream if the file cannot be opened.
+        fprintf(stderr, "Unable to open file!\n");
+    }
+}
+
 // fill the gui_board for drawing
 void fill_gui_board()
 {
@@ -1853,6 +1889,25 @@ void process_move(const int selected_piece, const int selected_square, moves_t *
         {
             last_move[side] = movelist->moves[i];
             ++move_counter[side];
+            char text0[3];
+            intToStr(move_counter[side], text0);
+            char *text1 = squarenumber[(int)last_move[side].sqf];
+            char *text2 = squarenumber[(int)last_move[side].sqt];
+            char *text3 = last_move[black].cap ? "x" : "-";
+            if (game_ptr != NULL)
+            {
+                if (side == white)
+                    fprintf(game_ptr, "%3s ", text0);
+                fprintf(game_ptr, "%s", text1);
+                fprintf(game_ptr, "%s", text3);
+                fprintf(game_ptr, "%s ", text2);
+                if (side == black)
+                    fprintf(game_ptr, "\n");
+            }
+            else
+            {
+                printf("Could not open file %s\n", file_name); 
+            }
             make_move(movelist->moves[i], all_moves);
             break;
         }
@@ -1980,6 +2035,25 @@ void *task(void *arg)
     return NULL;
 }
 
+// open file for game writing
+void start_writing(int who, int xwho)
+{
+    time_t now = time(NULL);
+    struct tm *t = localtime(&now);
+    strftime(file_name, sizeof(file_name) - 1, "%Y%m%d_%H%M.ntb", t);
+    game_ptr = fopen(file_name, "w");
+    if (game_ptr == NULL)
+        return;
+    if (who == human_player)
+        fprintf(game_ptr, "human - ");
+    else if (who == ai_player)
+        fprintf(game_ptr, "ai - ");
+    if (xwho == human_player)
+        fprintf(game_ptr, "human\n\n");
+    else if (xwho == ai_player)
+        fprintf(game_ptr, "ai\n\n");
+}
+
 //-----------------------------------------------
 // MAIN
 //-----------------------------------------------
@@ -2046,11 +2120,23 @@ int main()
             {
                 game_winner = black;
                 game_state = Game_stop;
+                if (game_ptr)
+                {
+                    fprintf(game_ptr, "\n\nzwart wint doordat wit niet meer kan zetten");
+                    fclose(game_ptr);
+                    game_ptr = NULL;
+                }
             }
             else
             {
                 game_winner = white;
                 game_state = Game_stop;
+                if (game_ptr)
+                {
+                    fprintf(game_ptr, "\n\nwit wint doordat zwart niet meer kan zetten");
+                    fclose(game_ptr);
+                    game_ptr = NULL;
+                }
             }
         }
         if (game_state == Game_play)
@@ -2061,6 +2147,24 @@ int main()
             {
                 game_state = Game_stop;
                 game_winner = gui_side ^ 1;
+                if (game_winner == black)
+                {
+                    if (game_ptr)
+                    {
+                        fprintf(game_ptr, "\n\nzwart wint doordat wit geen tijd meer heeft");
+                        fclose(game_ptr);
+                        game_ptr = NULL;
+                    }    
+                }
+                else
+                {
+                    if (game_ptr)
+                    {
+                        fprintf(game_ptr, "\n\nwit wint doordat zwart geen tijd meer heeft");
+                        fclose(game_ptr);
+                        game_ptr = NULL;
+                    }
+                }
             }
             else // update timer
             {
@@ -2212,6 +2316,7 @@ int main()
         if (game_state == Game_play)
         {
             if (human_player == gui_side || human_player == both)
+            {
                 DrawText(
                     (selected_piece == 99) ? "Click op een groen gemarkeerd veld, click op x om op te geven"
                                            : "Click op een blauw gemarkeerd veld, click op x om op te geven",
@@ -2219,6 +2324,13 @@ int main()
                     SCREEN_HEIGHT - 25,
                     20,
                     YELLOW);
+                DrawText(
+                    "F1 = show helptext in the terminal",
+                    BOARD_COL,
+                    SCREEN_HEIGHT - 50,
+                    20,
+                    PURPLE);
+            }
             else if (ai_player == gui_side || ai_player == both)
                 DrawText(
                     "Ik denk na over mijn zet...",
@@ -2351,11 +2463,14 @@ int main()
         EndDrawing();
 
         // key press
-        if (IsKeyPressed(KEY_F5) && game_state != Game_play)
+        if (IsKeyPressed(KEY_F1))
+            show_text();
+        else if (IsKeyPressed(KEY_F5) && game_state != Game_play)
         {
             reversed = 0;
             human_player = white;
             ai_player = black;
+            start_writing(human_player, ai_player);
             if (game_state == Game_stop)
                 new_game(Game_play, gui_movelist);
             else
@@ -2366,6 +2481,7 @@ int main()
             reversed = 1;
             human_player = black;
             ai_player = white;
+            start_writing(ai_player, human_player);
             if (game_state == Game_stop)
                 new_game(Game_play, gui_movelist);
             else
@@ -2376,6 +2492,7 @@ int main()
             reversed = 0;
             human_player = both;
             ai_player = -1;
+            start_writing(human_player, human_player);
             if (game_state == Game_stop)
                 new_game(Game_play, gui_movelist);
             else
@@ -2386,6 +2503,7 @@ int main()
             reversed = 0;
             human_player = -1;
             ai_player = both;
+            start_writing(ai_player, ai_player);
             if (game_state == Game_stop)
                 new_game(Game_play, gui_movelist);
             else
@@ -2451,6 +2569,24 @@ int main()
         {
             game_state = Game_stop;
             game_winner = side ^= 1;
+            if (game_winner == black)
+            {
+                if (game_ptr)
+                {
+                    fprintf(game_ptr, "\n\nzwart wint omdat wit op geeft");
+                    fclose(game_ptr);
+                    game_ptr = NULL;
+                }    
+            }
+            else
+            {
+                if (game_ptr)
+                {
+                    fprintf(game_ptr, "\n\nwit wint omdat zwart op geeft");
+                    fclose(game_ptr);
+                    game_ptr = NULL;
+                }
+            }
         }
         else if (IsKeyPressed(KEY_ENTER) && game_state == Game_play)
         {
@@ -2528,6 +2664,10 @@ int main()
             }
         }
     }
+
+    if (game_ptr != NULL)
+        fclose(game_ptr);
+
     // clean up
     // to stop searching rapidly when a thread is started
     stop_game_flag = 1;
