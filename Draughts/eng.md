@@ -21,3 +21,11 @@ King Capture vs. Multiple Capture: If you can capture an equal number of pieces 
 
 ## Winning
 You win when you have captured all of your opponent's checkers, or when your opponent can no longer make a legal move.
+
+## 50-move rule
+When applicable: After 50 consecutive moves by both players, with no checkers captured and no kings won.
+Result: Draw.
+
+## The Three-Move Rule (Three-Way Repetition):
+This rule is intended to prevent endless draws, for example, when both players simply move checkers back and forth without actually winning.
+Result: Draw.

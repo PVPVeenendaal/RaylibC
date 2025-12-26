@@ -35,7 +35,7 @@
 #define MAX_PLUS 30
 #define MIN_PLUS 0
 
-#define title "Draughts in Raylib-C (C)2025 Peter Veenendaal; versie: 0.60"
+#define title "Draughts in Raylib-C (C)2025 Peter Veenendaal; versie: 0.70"
 
 // define min max macros
 #define Max(a, b) ((a) >= (b) ? (a) : (b))
@@ -83,6 +83,20 @@ enum
     Game_stop
 };
 
+// game_end
+enum
+{
+    nop,
+    bTime,   // white wins because black has no more time left
+    wTime,   // black wins because white has no more time left
+    bMove,   // white wins because black has no moves to make
+    wMove,   // black wins because white has no moves to make
+    bResign, // white wins because black resigned the game
+    wResign, // black wins because white resigned the game
+    draw50,  // draw by the 50 moves rule
+    draw3,   // draw by repetition
+};
+
 // squares
 //    0  1  2  3  4  5  6  7  8  9
 // 0  -  1  -  2  -  3  -  4  -  5
@@ -109,6 +123,12 @@ typedef struct
     int counter;
     int caplength;
 } moves_t;
+
+typedef struct
+{
+    U64 hash_keys[512];
+    int gamelength;
+} game_t;
 
 // squares
 //    0  1  2  3  4  5  6  7  8  9
@@ -453,8 +473,17 @@ U64 occupancies[3];
 // board filled with all active squares
 U64 all_squares = 0ULL;
 
+// "almost" unique position identifier aka hash key or position key
+U64 hash_key;
+
+// table with hashkeys for every position 1 to check for repetition
+game_t game_keys[1];
+
 // side to move
 int side;
+
+// fifty moves counter
+int fifty;
 
 // directions on the board for every square => 0 is outside the board
 U64 bb_dir[4][52];
@@ -501,18 +530,22 @@ void printBoard()
 }
 
 // preserve board state
-#define copy_board()                            \
-    U64 bitboards_copy[4], occupancies_copy[3]; \
-    int side_copy;                              \
-    memcpy(bitboards_copy, bitboards, 32);      \
-    memcpy(occupancies_copy, occupancies, 24);  \
+#define copy_board()                                           \
+    U64 bitboards_copy[4], occupancies_copy[3], hash_key_copy; \
+    int side_copy, fifty_copy;                                 \
+    memcpy(bitboards_copy, bitboards, 32);                     \
+    memcpy(occupancies_copy, occupancies, 24);                 \
+    hash_key_copy = hash_key;                                  \
+    fifty_copy = fifty;                                        \
     side_copy = side;
 
 // restore board state
 #define take_back()                            \
     memcpy(bitboards, bitboards_copy, 32);     \
     memcpy(occupancies, occupancies_copy, 24); \
-    side = side_copy;
+    hash_key = hash_key_copy;                  \
+    side = side_copy;                          \
+    fifty = fifty_copy;
 
 /**********************************\
  ==================================
@@ -663,6 +696,127 @@ void print_bitboard(U64 bitboard)
 /**********************************\
  ==================================
 
+           Random numbers
+
+ ==================================
+\**********************************/
+
+// pseudo random number state
+unsigned int random_state = 1804289383;
+
+// generate 32-bit pseudo legal numbers
+unsigned int get_random_U32_number()
+{
+    // get current state
+    unsigned int number = random_state;
+
+    // XOR shift algorithm
+    number ^= number << 13;
+    number ^= number >> 17;
+    number ^= number << 5;
+
+    // update random number state
+    random_state = number;
+
+    // return random number
+    return number;
+}
+
+// generate 64-bit pseudo legal numbers
+U64 get_random_U64_number()
+{
+    // define 4 random numbers
+    U64 n1, n2, n3, n4;
+
+    // init random numbers slicing 16 bits from MS1B side
+    n1 = (U64)(get_random_U32_number()) & 0xFFFF;
+    n2 = (U64)(get_random_U32_number()) & 0xFFFF;
+    n3 = (U64)(get_random_U32_number()) & 0xFFFF;
+    n4 = (U64)(get_random_U32_number()) & 0xFFFF;
+
+    // return random number
+    return n1 | (n2 << 16) | (n3 << 32) | (n4 << 48);
+}
+
+// generate magic number candidate
+U64 generate_magic_number()
+{
+    return get_random_U64_number() & get_random_U64_number() & get_random_U64_number();
+}
+
+/**********************************\
+ ==================================
+
+            Zobrist keys
+
+ ==================================
+\**********************************/
+
+// random piece keys [piece][square]
+U64 piece_keys[4][51];
+
+// random side key
+U64 side_key;
+
+// init random hash keys
+void init_random_keys()
+{
+    // update pseudo random number state
+    random_state = 1804289383;
+
+    // loop over piece codes
+    for (int piece = wPawn; piece <= bKing; piece++)
+    {
+        // loop over board squares
+        for (int square = 1; square <= 50; square++)
+            // init random piece keys
+            piece_keys[piece][square] = get_random_U64_number();
+    }
+
+    // init random side key
+    side_key = get_random_U64_number();
+}
+
+// generate "almost" unique position ID aka hash key from scratch
+U64 generate_hash_key()
+{
+    // final hash key
+    U64 final_key = 0ULL;
+
+    // temp piece bitboard copy
+    U64 bitboard;
+
+    // loop over piece bitboards
+    for (int piece = wPawn; piece <= bKing; piece++)
+    {
+        // init piece bitboard copy
+        bitboard = bitboards[piece];
+
+        // loop over the pieces within a bitboard
+        while (bitboard)
+        {
+            // init square occupied by the piece
+            int square = get_ls1b_index(bitboard);
+
+            // hash piece
+            final_key ^= piece_keys[piece][square];
+
+            // pop LS1B
+            pop_bit(bitboard, square);
+        }
+    }
+
+    // hash the side only if black is to move
+    if (side == black)
+        final_key ^= side_key;
+
+    // return generated hash key
+    return final_key;
+}
+
+/**********************************\
+ ==================================
+
     Fen
 
  ==================================
@@ -792,6 +946,7 @@ void read_fen(char *fenstr)
     }
 
     set_occupancies();
+    hash_key = generate_hash_key();
 }
 
 // write a fenstr form the current position
@@ -867,6 +1022,8 @@ void init_board()
     for (int i = 0; i < 3; ++i)
         print_bitboard(occupancies[i]);
     print_bitboard(all_squares);
+
+    init_random_keys();
 }
 
 /**********************************\
@@ -1126,10 +1283,12 @@ int make_move(move_t move, int move_type)
         // move
         pop_bit(bitboards[piece], sqf);
         set_bit(bitboards[piece], sqt);
+        ++fifty;
 
         // capture
         if (move.cap > 0ULL)
         {
+            fifty = 0; // reset fifty moves counter
             U64 c = move.cap;
             while (c)
             {
@@ -1153,15 +1312,18 @@ int make_move(move_t move, int move_type)
         {
             pop_bit(bitboards[bPawn], sqt);
             set_bit(bitboards[bKing], sqt);
+            fifty = 0; // reset fifty moves counter
         }
         if (piece == wPawn && square_rank[sqt] == 1)
         {
             pop_bit(bitboards[wPawn], sqt);
             set_bit(bitboards[wKing], sqt);
+            fifty = 0; // reset fifty moves counter
         }
 
         set_occupancies();
         side ^= 1;
+        hash_key = generate_hash_key();
     }
     else
     {
@@ -1726,6 +1888,9 @@ int gui_side;
 // game start
 int game_state = Game_start;
 
+// end game reason
+int game_end_reason = nop;
+
 // winner of the game
 int game_winner = both;
 
@@ -1880,6 +2045,30 @@ int get_sqry(int row, int min)
     return 8;
 }
 
+// test if the position on the boaard is repeated 3 times
+int test_for_draw_repetition()
+{
+    int cnt = 0;
+    for (int i = 0; i < game_keys->gamelength; ++i)
+    {
+        if (hash_key == game_keys->hash_keys[i])
+            ++cnt;
+    }
+    if (cnt >= 3)
+    {
+        game_state = Game_stop;
+        game_end_reason = draw3;
+        if (game_ptr)
+        {
+            fprintf(game_ptr, "\n\nremise door herhaling van zetten\n");
+            fclose(game_ptr);
+            game_ptr = NULL;
+        }
+        return 1;
+    }
+    return 0;
+}
+
 // process the move
 void process_move(const int selected_piece, const int selected_square, moves_t *movelist)
 {
@@ -1906,9 +2095,11 @@ void process_move(const int selected_piece, const int selected_square, moves_t *
             }
             else
             {
-                printf("Could not open file %s\n", file_name); 
+                printf("Could not open file %s\n", file_name);
             }
             make_move(movelist->moves[i], all_moves);
+            game_keys->hash_keys[game_keys->gamelength++] = hash_key;
+            test_for_draw_repetition();
             break;
         }
     }
@@ -2049,9 +2240,10 @@ void start_writing(int who, int xwho)
     else if (who == ai_player)
         fprintf(game_ptr, "ai - ");
     if (xwho == human_player)
-        fprintf(game_ptr, "human\n\n");
+        fprintf(game_ptr, "human\n");
     else if (xwho == ai_player)
-        fprintf(game_ptr, "ai\n\n");
+        fprintf(game_ptr, "ai\n");
+    fprintf(game_ptr, "Bedenktijd: %d min %d sec/zet\n--------------------\n", (timer[white] / 60), plustimer[white]);
 }
 
 //-----------------------------------------------
@@ -2114,15 +2306,28 @@ int main()
             starttimer[gui_side] = get_time_ms();
             press_clock = 0;
         }
+        if (fifty >= 100)
+        {
+            game_winner = both;
+            game_state = Game_stop;
+            game_end_reason = draw50;
+            if (game_ptr)
+            {
+                fprintf(game_ptr, "\n\nremise door de 50 zetten regel\n");
+                fclose(game_ptr);
+                game_ptr = NULL;
+            }
+        }
         if (gui_movelist->counter == 0)
         {
             if (side == white)
             {
                 game_winner = black;
                 game_state = Game_stop;
+                game_end_reason = wMove;
                 if (game_ptr)
                 {
-                    fprintf(game_ptr, "\n\nzwart wint doordat wit niet meer kan zetten");
+                    fprintf(game_ptr, "\n\nzwart wint doordat wit niet meer kan zetten\n");
                     fclose(game_ptr);
                     game_ptr = NULL;
                 }
@@ -2131,9 +2336,10 @@ int main()
             {
                 game_winner = white;
                 game_state = Game_stop;
+                game_end_reason = bMove;
                 if (game_ptr)
                 {
-                    fprintf(game_ptr, "\n\nwit wint doordat zwart niet meer kan zetten");
+                    fprintf(game_ptr, "\n\nwit wint doordat zwart niet meer kan zetten\n");
                     fclose(game_ptr);
                     game_ptr = NULL;
                 }
@@ -2149,18 +2355,20 @@ int main()
                 game_winner = gui_side ^ 1;
                 if (game_winner == black)
                 {
+                    game_end_reason = wTime;
                     if (game_ptr)
                     {
-                        fprintf(game_ptr, "\n\nzwart wint doordat wit geen tijd meer heeft");
+                        fprintf(game_ptr, "\n\nzwart wint doordat wit geen tijd meer heeft\n");
                         fclose(game_ptr);
                         game_ptr = NULL;
-                    }    
+                    }
                 }
                 else
                 {
+                    game_end_reason = bTime;
                     if (game_ptr)
                     {
-                        fprintf(game_ptr, "\n\nwit wint doordat zwart geen tijd meer heeft");
+                        fprintf(game_ptr, "\n\nwit wint doordat zwart geen tijd meer heeft\n");
                         fclose(game_ptr);
                         game_ptr = NULL;
                     }
@@ -2300,6 +2508,12 @@ int main()
                 20,
                 YELLOW);
             DrawText(
+                "F1 = show helptext in the terminal",
+                BOARD_COL,
+                5,
+                20,
+                PURPLE);
+            DrawText(
                 "Tijd per spel: A=+5min, B=-5min, C=+1min, D=-1min",
                 BOARD_COL,
                 BOARD_ROW + BOARD_SIZE + 5,
@@ -2327,7 +2541,7 @@ int main()
                 DrawText(
                     "F1 = show helptext in the terminal",
                     BOARD_COL,
-                    SCREEN_HEIGHT - 50,
+                    5,
                     20,
                     PURPLE);
             }
@@ -2342,8 +2556,36 @@ int main()
         // game ends
         if (game_state == Game_stop)
         {
+            char *text;
+            switch (game_end_reason)
+            {
+            case wTime:
+                text = "zwart wint doordat wit geen tijd meer heeft";
+                break;
+            case bTime:
+                text = "wit wint doordat zwart geen tijd meer heeft";
+                break;
+            case wMove:
+                text = "zwart wint doordat wit niet meer kan zetten";
+                break;
+            case bMove:
+                text = "wit wint doordat zwart niet meer kan zetten";
+                break;
+            case wResign:
+                text = "zwart wint omdat wit op geeft";
+                break;
+            case bResign:
+                text = "wit wint omdat zwart op geeft";
+                break;
+            case draw50:
+                text = "remise door de 50 zetten regel";
+                break;
+            case draw3:
+                text = "remise door herhaling van zetten";
+                break;
+            }
             DrawText(
-                (game_winner == white) ? "Wit wint!" : "Zwart wint",
+                text,
                 BOARD_COL,
                 SCREEN_HEIGHT - 50,
                 20,
@@ -2571,18 +2813,20 @@ int main()
             game_winner = side ^= 1;
             if (game_winner == black)
             {
+                game_end_reason = wResign;
                 if (game_ptr)
                 {
-                    fprintf(game_ptr, "\n\nzwart wint omdat wit op geeft");
+                    fprintf(game_ptr, "\n\nzwart wint omdat wit op geeft\n");
                     fclose(game_ptr);
                     game_ptr = NULL;
-                }    
+                }
             }
             else
             {
+                game_end_reason = bResign;
                 if (game_ptr)
                 {
-                    fprintf(game_ptr, "\n\nwit wint omdat zwart op geeft");
+                    fprintf(game_ptr, "\n\nwit wint omdat zwart op geeft\n");
                     fclose(game_ptr);
                     game_ptr = NULL;
                 }
@@ -2620,7 +2864,7 @@ int main()
             {
                 if (gui_movelist->counter == 1)
                 {
-                    if (counter % 5 == 0)
+                    if (counter % 10 == 0)
                     {
                         move_t bestmove = gui_movelist->moves[0];
                         process_move(bestmove.sqf, bestmove.sqt, gui_movelist);
@@ -2651,7 +2895,7 @@ int main()
                             thread_busy = 0;
                         }
                     }
-                    else if (counter % 5 == 0)
+                    else if (counter % 10 == 0)
                     {
                         move_t bestmove = gui_movelist->moves[GetRandomValue(0, gui_movelist->counter - 1)];
                         process_move(bestmove.sqf, bestmove.sqt, gui_movelist);

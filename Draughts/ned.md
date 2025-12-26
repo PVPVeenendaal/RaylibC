@@ -20,3 +20,11 @@ Damslag vs. Meerslag: Als je met een dam en een gewone schijf evenveel stukken k
 
 ## Winnen
 Je wint als je alle schijven van de tegenstander hebt geslagen, of als je tegenstander geen legale zet meer kan doen. 
+
+## 50 zetten regel
+Wanneer van toepassing: Na 50 opeenvolgende zetten van beide spelers, waarbij er geen schijf is geslagen en geen dam is gehaald.
+Resultaat: Remise (gelijkspel). 
+
+## De Driezetsregel (Drievoudige Herhaling):
+Deze regel is bedoeld om eindeloze remises te voorkomen, bijvoorbeeld wanneer beide spelers alleen nog maar met dammen over en weer schuiven zonder echt te winnen.
+Resultaat: Remise (gelijkspel). 
