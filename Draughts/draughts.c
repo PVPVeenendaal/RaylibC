@@ -21,6 +21,7 @@
 #define get_bit(bitboard, square) ((bitboard) & (1ULL << (square)))
 #define pop_bit(bitboard, square) ((bitboard) &= ~(1ULL << (square)))
 
+// draw sizes
 #define SCREEN_WIDTH 816
 #define SCREEN_HEIGHT 850
 #define BOARD_ROW 68
@@ -35,11 +36,35 @@
 #define MAX_PLUS 30
 #define MIN_PLUS 0
 
-#define title "Draughts in Raylib-C (C)2025 Peter Veenendaal; versie: 0.70"
+#define title "Draughts in Raylib-C (C)2025 Peter Veenendaal; versie: 0.80"
 
 // define min max macros
 #define Max(a, b) ((a) >= (b) ? (a) : (b))
 #define Min(a, b) ((a) <= (b) ? (a) : (b))
+
+#ifdef NDEBUG // release mode
+#define PrintAssert(ignore) (void *)0
+#else
+#define PrintAssert(expr)                       \
+    if (!(expr))                                \
+    {                                           \
+        printf("%s%s\n%s%s\n%s%d\n\n",          \
+               "Assertion is not true:", #expr, \
+               "in file ", __FILE__,            \
+               "on line ", __LINE__);           \
+    }
+#endif
+
+// search values
+#define infinity 50000
+
+// no hash entry found constant
+#define no_hash_entry 100000
+
+// transposition table hash flags
+#define hash_flag_exact 0
+#define hash_flag_alpha 1
+#define hash_flag_beta 2
 
 // colors
 enum
@@ -112,14 +137,7 @@ enum
 
 typedef struct
 {
-    char sqf;
-    char sqt;
-    U64 cap;
-} move_t;
-
-typedef struct
-{
-    move_t moves[256];
+    U64 moves[256];
     int counter;
     int caplength;
 } moves_t;
@@ -129,6 +147,15 @@ typedef struct
     U64 hash_keys[512];
     int gamelength;
 } game_t;
+
+// transposition table data structure
+typedef struct
+{
+    U64 hash_key; // "almost" unique chess position identifier
+    int depth;    // current search depth
+    int flag;     // flag the type of node (fail-low/fail-high/PV)
+    int score;    // score (alpha/beta/PV)
+} tt;             // transposition table (TT aka hash table)
 
 // squares
 //    0  1  2  3  4  5  6  7  8  9
@@ -155,43 +182,6 @@ const int squares[10][10] = {
     {0, 41, 0, 42, 0, 43, 0, 44, 9, 45},
     {46, 0, 47, 0, 48, 0, 49, 0, 50, 0},
 };
-
-/*
-const int single_sqaures[32] = {
-    1,
-    3,
-    5,
-    7,
-    8,
-    10,
-    12,
-    14,
-    17,
-    19,
-    21,
-    23,
-    24,
-    26,
-    28,
-    30,
-    33,
-    35,
-    37,
-    39,
-    40,
-    42,
-    44,
-    46,
-    49,
-    51,
-    53,
-    55,
-    56,
-    58,
-    60,
-    62,
-};
-*/
 
 const int rowcol[51][2] = {
     {0, 0},
@@ -1023,7 +1013,10 @@ void init_board()
         print_bitboard(occupancies[i]);
     print_bitboard(all_squares);
 
+    // initialize random keys
     init_random_keys();
+    // reset 50 moves counter
+    fifty = 0;
 }
 
 /**********************************\
@@ -1033,6 +1026,21 @@ void init_board()
 
  ==================================
 \**********************************/
+
+// encode move
+#define encode_move(source, target, capture) \
+    ((U64)(capture) |                             \
+     ((U64)(source) << 52) |                      \
+     ((U64)(target) << 58))
+
+// extract source square
+#define get_move_source(move) (((move) >> 52) & 63)
+
+// extract target square
+#define get_move_target(move) (((move) >> 58) & 63)
+
+// extract capture
+#define get_move_capture(move) (((move) & all_squares))
 
 // initialize bitboards dir
 void init_bb_dir()
@@ -1059,20 +1067,23 @@ void generate_next_captures(moves_t *move_list)
     U64 empty = ~occupancies[both] & all_squares;
     int sqf, sqt, sqo, piece;
 
-    U64 b, e;
+    U64 b, e, cap;
 
     for (int i = 0; i < old_list->counter; ++i)
     {
-        move_t m = old_list->moves[i];
-        if (get_bit(bitboards[wPawn], m.sqf))
+        U64 m = old_list->moves[i];
+        sqf = get_move_source(m);
+        sqt = get_move_target(m);
+        cap = get_move_capture(m);
+        if (get_bit(bitboards[wPawn], sqf))
             piece = wPawn;
-        else if (get_bit(bitboards[bPawn], m.sqf))
+        else if (get_bit(bitboards[bPawn], sqf))
             piece = bPawn;
-        else if (get_bit(bitboards[wKing], m.sqf))
+        else if (get_bit(bitboards[wKing], sqf))
             piece = wKing;
-        else if (get_bit(bitboards[bKing], m.sqf))
+        else if (get_bit(bitboards[bKing], sqf))
             piece = bKing;
-        sqf = m.sqt;
+        sqf = sqt;
         if (piece == wPawn || piece == bPawn)
         {
             for (int d = nw; d <= se; ++d)
@@ -1081,17 +1092,15 @@ void generate_next_captures(moves_t *move_list)
                 if (b)
                 {
                     sqo = get_ls1b_index(b);
-                    if (get_bit(m.cap, sqo)) // can't jump over a piece a second time
+                    if (get_bit(cap, sqo)) // can't jump over a piece a second time
                         continue;
                     e = empty & bb_dir[d][sqo];
                     if (e) // next capture found
                     {
                         sqt = get_ls1b_index(e);
-                        U64 newcap = m.cap;
+                        U64 newcap = cap;
                         set_bit(newcap, sqo);
-                        move_list->moves[move_list->counter].sqf = m.sqf;
-                        move_list->moves[move_list->counter].sqt = sqt;
-                        move_list->moves[move_list->counter].cap = newcap;
+                        move_list->moves[move_list->counter] = encode_move(sqf, sqt, newcap);
                         ++move_list->counter;
                         move_list->caplength = old_list->caplength + 1;
                     }
@@ -1114,17 +1123,15 @@ void generate_next_captures(moves_t *move_list)
                 if (b)
                 {
                     sqo = get_ls1b_index(b);
-                    if (get_bit(m.cap, sqo)) // can't jump over a piece a second time
+                    if (get_bit(cap, sqo)) // can't jump over a piece a second time
                         continue;
                     e = empty & bb_dir[d][sqo];
                     while (e) // next capture(s) found
                     {
                         sqt = get_ls1b_index(e);
-                        U64 newcap = m.cap;
+                        U64 newcap = cap;
                         set_bit(newcap, sqo);
-                        move_list->moves[move_list->counter].sqf = m.sqf;
-                        move_list->moves[move_list->counter].sqt = sqt;
-                        move_list->moves[move_list->counter].cap = newcap;
+                        move_list->moves[move_list->counter] = encode_move(sqf, sqt, newcap);
                         ++move_list->counter;
                         move_list->caplength = old_list->caplength + 1;
                         e = empty & bb_dir[d][sqt];
@@ -1153,7 +1160,7 @@ void generate_moves(moves_t *movelist)
     int dirP2 = side == white ? ne : se;
     int sqf, sqt, sqo;
 
-    U64 b, e;
+    U64 b, e, cap;
 
     while (pawns)
     {
@@ -1168,11 +1175,11 @@ void generate_moves(moves_t *movelist)
                 if (e) // capture found
                 {
                     sqt = get_ls1b_index(e);
+                    cap = 0ULL;
+                    set_bit(cap, sqo);
                     if (movelist->caplength == 0)
                         movelist->counter = 0;
-                    movelist->moves[movelist->counter].sqf = sqf;
-                    movelist->moves[movelist->counter].sqt = sqt;
-                    set_bit(movelist->moves[movelist->counter].cap, sqo);
+                    movelist->moves[movelist->counter] = encode_move(sqf, sqt, cap);
                     ++movelist->counter;
                     movelist->caplength = 1;
                 }
@@ -1183,8 +1190,7 @@ void generate_moves(moves_t *movelist)
                 if (e && movelist->caplength == 0)
                 {
                     sqt = get_ls1b_index(e);
-                    movelist->moves[movelist->counter].sqf = sqf;
-                    movelist->moves[movelist->counter].sqt = sqt;
+                    movelist->moves[movelist->counter] = encode_move(sqf, sqt, 0ULL);
                     ++movelist->counter;
                 }
             }
@@ -1204,8 +1210,7 @@ void generate_moves(moves_t *movelist)
                 sqo = get_ls1b_index(e);
                 if (movelist->caplength == 0)
                 {
-                    movelist->moves[movelist->counter].sqf = sqf;
-                    movelist->moves[movelist->counter].sqt = sqo;
+                    movelist->moves[movelist->counter] = encode_move(sqf, sqo, 0ULL);
                     ++movelist->counter;
                 }
                 e = empty & bb_dir[d][sqo];
@@ -1218,11 +1223,11 @@ void generate_moves(moves_t *movelist)
                 while (e) // capture(s) found
                 {
                     sqt = get_ls1b_index(e);
+                    cap = 0ULL;
+                    set_bit(cap, sqo);
                     if (movelist->caplength == 0)
                         movelist->counter = 0;
-                    movelist->moves[movelist->counter].sqf = sqf;
-                    movelist->moves[movelist->counter].sqt = sqt;
-                    set_bit(movelist->moves[movelist->counter].cap, sqo);
+                    movelist->moves[movelist->counter] = encode_move(sqf, sqt, cap);
                     ++movelist->counter;
                     movelist->caplength = 1;
                     e = empty & bb_dir[d][sqt];
@@ -1237,11 +1242,11 @@ void generate_moves(moves_t *movelist)
 }
 
 // print_move
-void print_move(move_t mov)
+void print_move(U64 mov)
 {
-    int sqf = mov.sqf;
-    int sqt = mov.sqt;
-    U64 cap = mov.cap;
+    int sqf = get_move_source(mov);
+    int sqt = get_move_target(mov);
+    U64 cap = get_move_capture(mov);
 
     char *mvp = (cap) ? " x " : " - ";
 #ifndef NDEBUG // print only in debug mode
@@ -1261,10 +1266,11 @@ void print_movelist(moves_t *movelist)
 }
 
 // make a move
-int make_move(move_t move, int move_type)
+int make_move(U64 move, int move_type)
 {
-    int sqf = move.sqf;
-    int sqt = move.sqt;
+    int sqf = get_move_source(move);
+    int sqt = get_move_target(move);
+    U64 cap = get_move_capture(move);
     int piece = no_piece;
     int xside = no_piece;
     int result = 1;
@@ -1286,10 +1292,10 @@ int make_move(move_t move, int move_type)
         ++fifty;
 
         // capture
-        if (move.cap > 0ULL)
+        if (cap > 0ULL)
         {
             fifty = 0; // reset fifty moves counter
-            U64 c = move.cap;
+            U64 c = cap;
             while (c)
             {
                 int sqo = get_ls1b_index(c);
@@ -1327,7 +1333,7 @@ int make_move(move_t move, int move_type)
     }
     else
     {
-        if (move.cap > 0ULL)
+        if (cap > 0ULL)
             result = make_move(move, all_moves);
         else
             result = 0;
@@ -1431,7 +1437,7 @@ int ply = 0;
 int pv_length[MAX_PLY];
 
 // PV table [ply][ply]
-move_t pv_table[MAX_PLY][MAX_PLY];
+U64 pv_table[MAX_PLY][MAX_PLY];
 
 // follow PV & score PV move
 int follow_pv, score_pv;
@@ -1479,10 +1485,132 @@ static int stop_game_flag = 0;
 // evalaation score
 static int score = 0;
 
-// is move equal
-static inline int move_is_equal(move_t move1, move_t move2)
+/**********************************\
+ ==================================
+
+        Transposition table
+
+ ==================================
+\**********************************/
+
+// number hash table entries
+int hash_entries = 0;
+
+// define TT instance
+tt *hash_table = NULL;
+
+// clear TT (hash table)
+void clear_hash_table()
 {
-    return move1.sqf == move2.sqf && move1.sqt == move2.sqt && move1.cap == move2.cap;
+    // init hash table entry pointer
+    tt *hash_entry;
+
+    // loop over TT elements
+    for (hash_entry = hash_table; hash_entry < hash_table + hash_entries; hash_entry++)
+    {
+        // reset TT inner fields
+        hash_entry->hash_key = 0;
+        hash_entry->depth = 0;
+        hash_entry->flag = 0;
+        hash_entry->score = 0;
+    }
+}
+
+// dynamically allocate memory for hash table
+void init_hash_table(int mb)
+{
+    // init hash size
+    int hash_size = 0x100000 * mb;
+
+    // init number of hash entries
+    hash_entries = hash_size / sizeof(tt);
+
+    // free hash table if not empty
+    if (hash_table != NULL)
+    {
+#ifndef NDEBUG // print only in debug mode
+        printf("\n    Clearing hash memory...\n");
+#endif
+        // free hash table dynamic memory
+        free(hash_table);
+    }
+
+    // allocate memory
+    hash_table = (tt *)malloc(hash_entries * sizeof(tt));
+
+    // if allocation has failed
+    if (hash_table == NULL)
+    {
+#ifndef NDEBUG // print only in debug mode
+        printf("   Couldn't allocate memory for hash table, tryinr %dMB...", mb / 2);
+#endif
+
+        // try to allocate with half size
+        init_hash_table(mb / 2);
+    }
+
+    // if allocation succeeded
+    else
+    {
+        // clear hash table
+        clear_hash_table();
+#ifndef NDEBUG // print only in debug mode
+        printf("   Hash table is initialied with %d entries\n", hash_entries);
+#endif
+    }
+}
+
+// read hash entry data
+static inline int read_hash_entry(int alpha, int beta, int depth)
+{
+    // create a TT instance pointer to particular hash entry storing
+    // the scoring data for the current board position if available
+    tt *hash_entry = &hash_table[hash_key % hash_entries];
+
+    // make sure we're dealing with the exact position we need
+    if (hash_entry->hash_key == hash_key)
+    {
+        // make sure that we match the exact depth our search is now at
+        if (hash_entry->depth >= depth)
+        {
+            // extract stored score from TT entry
+            int score = hash_entry->score;
+
+            // match the exact (PV node) score
+            if (hash_entry->flag == hash_flag_exact)
+                // return exact (PV node) score
+                return score;
+
+            // match alpha (fail-low node) score
+            if ((hash_entry->flag == hash_flag_alpha) &&
+                (score <= alpha))
+                // return alpha (fail-low node) score
+                return alpha;
+
+            // match beta (fail-high node) score
+            if ((hash_entry->flag == hash_flag_beta) &&
+                (score >= beta))
+                // return beta (fail-high node) score
+                return beta;
+        }
+    }
+
+    // if hash entry doesn't exist
+    return no_hash_entry;
+}
+
+// write hash entry data
+static inline void write_hash_entry(int score, int depth, int hash_flag)
+{
+    // create a TT instance pointer to particular hash entry storing
+    // the scoring data for the current board position if available
+    tt *hash_entry = &hash_table[hash_key % hash_entries];
+
+    // write hash entry data
+    hash_entry->hash_key = hash_key;
+    hash_entry->score = score;
+    hash_entry->flag = hash_flag;
+    hash_entry->depth = depth;
 }
 
 // enable PV move scoring
@@ -1495,7 +1623,7 @@ static inline void enable_pv_scoring(moves_t *move_list)
     for (int count = 0; count < move_list->counter; ++count)
     {
         // make sure we hit PV move
-        if (move_is_equal(pv_table[0][ply], move_list->moves[count]))
+        if (pv_table[0][ply] == move_list->moves[count])
         {
             // enable move scoring
             score_pv = 1;
@@ -1507,13 +1635,13 @@ static inline void enable_pv_scoring(moves_t *move_list)
 }
 
 // score form a move
-static inline int score_move(move_t move)
+static inline int score_move(U64 move)
 {
     // if PV move scoring is allowed
     if (score_pv)
     {
         // make sure we are dealing with PV move
-        if (move_is_equal(pv_table[0][ply], move))
+        if (pv_table[0][ply] == move)
         {
             // disable score PV flag
             score_pv = 0;
@@ -1522,9 +1650,10 @@ static inline int score_move(move_t move)
             return 20000;
         }
     }
-    if (move.cap > 0ULL)
+
+    if (get_move_capture(move) > 0ULL)
     {
-        return 10000 + count_bits(move.cap);
+        return 10000 + count_bits(get_move_capture(move));
     }
     return GetRandomValue(0, 1000);
 }
@@ -1555,7 +1684,7 @@ static inline int sort_moves(moves_t *move_list)
                 move_scores[next_move] = temp_score;
 
                 // swap moves
-                move_t temp_move = move_list->moves[current_move];
+                U64 temp_move = move_list->moves[current_move];
                 move_list->moves[current_move] = move_list->moves[next_move];
                 move_list->moves[next_move] = temp_move;
             }
@@ -1668,7 +1797,25 @@ static inline int negamax(int alpha, int beta, int depth)
     pv_length[ply] = ply;
 
     // variable to store current move's score (from the static evaluation perspective)
-    int score;
+    int score = 0;
+
+    // define hash flag
+    int hash_flag = hash_flag_alpha;
+
+    // a hack by Pedro Castro to figure out whether the current node is PV node or not
+    int pv_node = beta - alpha > 1;
+
+    // read hash entry if we're not in a root ply and hash entry is available
+    // and current node is not a PV node
+    if (ply && (score = read_hash_entry(alpha, beta, depth)) != no_hash_entry && pv_node == 0)
+    // if the move has already been searched (hence has a value)
+    // we just return the score for this move without searching it
+    {
+#ifndef NDEBUG
+        printf("hash_entry found: %d\n", score);
+#endif
+        return score;
+    }
 
     // every stop thinking flag nodes
     if ((nodes & 2047) == 0)
@@ -1722,6 +1869,11 @@ static inline int negamax(int alpha, int beta, int depth)
         // make sure to make only legal moves
         if (make_move(move_list->moves[count], all_moves) == 0)
         {
+#ifndef NDEBUG
+            print_move(move_list->moves[count]);
+            printf("Is not valid");
+#endif
+
             // decrement ply
             --ply;
 
@@ -1748,6 +1900,10 @@ static inline int negamax(int alpha, int beta, int depth)
         // found a better move
         if (score > alpha)
         {
+            // switch hash flag from storing score for fail-low node
+            // to the one storing score for PV node
+            hash_flag = hash_flag_exact;
+
             // PV node (position)
             alpha = score;
 
@@ -1765,6 +1921,9 @@ static inline int negamax(int alpha, int beta, int depth)
             // fail-hard beta cutoff
             if (score >= beta)
             {
+                // store hash entry with the score equal to beta
+                write_hash_entry(beta, depth, hash_flag_beta);
+
                 // node (position) fails high
                 return beta;
             }
@@ -1774,6 +1933,8 @@ static inline int negamax(int alpha, int beta, int depth)
     // we don't have any legal moves to make in the current postion
     if (legal_moves == 0)
         return evaluate();
+
+    write_hash_entry(alpha, depth, hash_flag);
 
     // node (position) fails low
     return alpha;
@@ -1930,7 +2091,7 @@ int selected_square = 99;
 moves_t gui_movelist[1];
 
 // for showing the last played move
-move_t last_move[2];
+U64 last_move[2];
 
 // count the played moves in the game for white and black
 int move_counter[2];
@@ -1946,7 +2107,7 @@ static int thread_busy = 0;
 FILE *game_ptr = NULL;
 
 // file for notation
-char file_name[18];
+char file_name[20];
 
 // show text in the terminal
 void show_text()
@@ -2012,10 +2173,13 @@ void fill_options(moves_t *movelist)
 
     for (int index = 0; index < movelist->counter; ++index)
     {
-        move_t m = movelist->moves[index];
-        set_bit(move_options, (int)m.sqf);
-        set_bit(square_options[(int)m.sqf], (int)m.sqt);
-        cap_options[(int)m.sqf] |= m.cap;
+        U64 m = movelist->moves[index];
+        int sqf = get_move_source(m);
+        int sqt = get_move_target(m);
+        U64 cap = get_move_capture(m);
+        set_bit(move_options, sqf);
+        set_bit(square_options[sqf], sqt);
+        cap_options[sqf] |=cap;
     }
 }
 
@@ -2074,15 +2238,15 @@ void process_move(const int selected_piece, const int selected_square, moves_t *
 {
     for (int i = 0; i < movelist->counter; ++i)
     {
-        if (movelist->moves[i].sqf == selected_piece && movelist->moves[i].sqt == selected_square)
+        if (get_move_source(movelist->moves[i]) == selected_piece && get_move_target(movelist->moves[i]) == selected_square)
         {
             last_move[side] = movelist->moves[i];
             ++move_counter[side];
             char text0[3];
             intToStr(move_counter[side], text0);
-            char *text1 = squarenumber[(int)last_move[side].sqf];
-            char *text2 = squarenumber[(int)last_move[side].sqt];
-            char *text3 = last_move[black].cap ? "x" : "-";
+            char *text1 = squarenumber[get_move_source(last_move[side])];
+            char *text2 = squarenumber[get_move_target(last_move[side])];
+            char *text3 = get_move_capture(last_move[side]) ? "x" : "-";
             if (game_ptr != NULL)
             {
                 if (side == white)
@@ -2184,6 +2348,8 @@ void new_game(const int state, moves_t *movelist)
     fill_clocktime(black);
     press_clock = 1;
     init_board();
+    // clear the hash table
+    clear_hash_table();
     gui_side = side;
     generate_moves(movelist);
 #ifndef NDEBUG
@@ -2191,7 +2357,7 @@ void new_game(const int state, moves_t *movelist)
 #endif
     fill_gui_board();
     fill_options(movelist);
-    memset(last_move, 0, sizeof(move_t) * 2);
+    memset(last_move, 0, sizeof(U64) * 2);
     move_counter[black] = 0;
     move_counter[white] = 0;
     game_state = state;
@@ -2231,7 +2397,7 @@ void start_writing(int who, int xwho)
 {
     time_t now = time(NULL);
     struct tm *t = localtime(&now);
-    strftime(file_name, sizeof(file_name) - 1, "%Y%m%d_%H%M.ntb", t);
+    strftime(file_name, sizeof(file_name) - 1, "./%Y%m%d_%H%M.ntb", t);
     game_ptr = fopen(file_name, "w");
     if (game_ptr == NULL)
         return;
@@ -2253,6 +2419,7 @@ void start_writing(int who, int xwho)
 int main()
 {
     init_bb_dir();
+    init_hash_table(128);
     new_game(Game_start, gui_movelist);
     int counter = 0;
 
@@ -2600,9 +2767,9 @@ int main()
             {
                 char text0[3];
                 intToStr(move_counter[black], text0);
-                char *text1 = squarenumber[(int)last_move[black].sqf];
-                char *text2 = squarenumber[(int)last_move[black].sqt];
-                char *text3 = last_move[black].cap ? "x" : "-";
+                char *text1 = squarenumber[get_move_source(last_move[black])];
+                char *text2 = squarenumber[get_move_target(last_move[black])];
+                char *text3 = get_move_capture(last_move[black]) ? "x" : "-";
                 int posx = BOARD_COL;
                 int posy = (reversed) ? BOARD_ROW + BOARD_SIZE + 4 : BOARD_ROW - 20;
                 DrawText(
@@ -2636,9 +2803,9 @@ int main()
             {
                 char text0[3];
                 intToStr(move_counter[white], text0);
-                char *text1 = squarenumber[(int)last_move[white].sqf];
-                char *text2 = squarenumber[(int)last_move[white].sqt];
-                char *text3 = last_move[white].cap ? "x" : "-";
+                char *text1 = squarenumber[get_move_source(last_move[white])];
+                char *text2 = squarenumber[get_move_target(last_move[white])];
+                char *text3 = get_move_capture(last_move[white]) ? "x" : "-";
                 int posx = BOARD_COL;
                 int posy = (reversed) ? BOARD_ROW - 20 : BOARD_ROW + BOARD_SIZE + 4;
                 DrawText(
@@ -2705,7 +2872,7 @@ int main()
         EndDrawing();
 
         // key press
-        if (IsKeyPressed(KEY_F1))
+        if (IsKeyPressed(KEY_F1) && (human_player == gui_side || human_player == both))
             show_text();
         else if (IsKeyPressed(KEY_F5) && game_state != Game_play)
         {
@@ -2836,8 +3003,8 @@ int main()
         {
             if (gui_movelist->caplength > 0)
             {
-                move_t move = gui_movelist->moves[0];
-                process_move(move.sqf, move.sqt, gui_movelist);
+                U64 move = gui_movelist->moves[0];
+                process_move(get_move_source(move), get_move_target(move), gui_movelist);
                 selected_piece = 99;
                 selected_square = 99;
                 fill_gui_board();
@@ -2866,8 +3033,8 @@ int main()
                 {
                     if (counter % 10 == 0)
                     {
-                        move_t bestmove = gui_movelist->moves[0];
-                        process_move(bestmove.sqf, bestmove.sqt, gui_movelist);
+                        U64 bestmove = gui_movelist->moves[0];
+                        process_move(get_move_source(bestmove), get_move_target(bestmove), gui_movelist);
                         selected_piece = 99;
                         selected_square = 99;
                         fill_gui_board();
@@ -2887,7 +3054,7 @@ int main()
                         }
                         else if (task_ready) // thread is finished
                         {
-                            process_move(pv_table[0][0].sqf, pv_table[0][0].sqt, gui_movelist);
+                            process_move(get_move_source(pv_table[0][0]), get_move_target(pv_table[0][0]), gui_movelist);
                             selected_piece = 99;
                             selected_square = 99;
                             fill_gui_board();
@@ -2897,8 +3064,8 @@ int main()
                     }
                     else if (counter % 10 == 0)
                     {
-                        move_t bestmove = gui_movelist->moves[GetRandomValue(0, gui_movelist->counter - 1)];
-                        process_move(bestmove.sqf, bestmove.sqt, gui_movelist);
+                        U64 bestmove = gui_movelist->moves[GetRandomValue(0, gui_movelist->counter - 1)];
+                        process_move(get_move_source(bestmove), get_move_target(bestmove), gui_movelist);
                         selected_piece = 99;
                         selected_square = 99;
                         fill_gui_board();
@@ -2924,6 +3091,9 @@ int main()
             sleep(1);
         }
     }
+
+    // free hash table memory on exit
+    free(hash_table);
 
     // unload the images
     UnloadTexture(img_empty);
