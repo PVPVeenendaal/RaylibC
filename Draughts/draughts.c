@@ -8,7 +8,7 @@
 #include <pthread.h>
 
 #define TEST 0
-#define TTT 0
+#define TTT 1
 #define USE_ENGINE 1
 #define SIZE 10
 #define INFINITY 50000
@@ -1073,6 +1073,7 @@ void generate_next_captures(moves_t *move_list)
             piece = wKing;
         else if (get_bit(bitboards[bKing], sqf))
             piece = bKing;
+        else piece = no_piece;
         sqf = sqt;
         if (piece == wPawn || piece == bPawn)
         {
@@ -1097,7 +1098,7 @@ void generate_next_captures(moves_t *move_list)
                 }
             }
         }
-        else
+        else if (piece == wKing || piece == bKing)
         {
             // white or black king
             for (int d = nw; d <= se; ++d)
@@ -1979,8 +1980,13 @@ static inline int search_position(int depth)
     {
         // if time is up
         if (stopped == 1)
+        {
+#ifndef NDEBUG
+            printf("stop calculating...\n");
+#endif
             // stop calculating and return best move so far
             break;
+        }
 
         // enable follow PV flag
         follow_pv = 1;
@@ -2025,7 +2031,7 @@ static inline int search_position(int depth)
     printf(" score: %d\n", score);
 #endif
 
-    return 0;
+    return score;
 }
 
 // Fill the time for on the chessclock for the color white or black
@@ -2368,6 +2374,11 @@ void *task(void *arg)
     printf("task score %d\n", sc);
 #endif
     timeset = 0;
+    process_move(get_move_source(pv_table[0][0]), get_move_target(pv_table[0][0]), gui_movelist);
+    selected_piece = 99;
+    selected_square = 99;
+    fill_gui_board();
+    fill_options(gui_movelist);
     // set the flag so the program knows that the thread is finished
     task_ready = 1;
     return NULL;
@@ -2934,50 +2945,31 @@ int main()
         if (game_state == Game_play && (ai_player == gui_side || ai_player == both))
         {
             if (gui_movelist->counter > 0)
-            {
-                if (gui_movelist->counter == 1)
+            {   
+#if (USE_ENGINE)
+                if (!thread_busy)
                 {
-                    if (counter % 10 == 0)
-                    {
-                        U64 bestmove = gui_movelist->moves[0];
-                        process_move(get_move_source(bestmove), get_move_target(bestmove), gui_movelist);
-                        selected_piece = 99;
-                        selected_square = 99;
-                        fill_gui_board();
-                        fill_options(gui_movelist);
-                    }
+                    // start the thread
+                    pthread_create(&thread, NULL, task, NULL);
+                    // forget that the thread is started, the task task_ready indicates when the thread is finished
+                    pthread_detach(thread);
                 }
-                else
+                else if (task_ready) // thread is finished
                 {
-                    if (USE_ENGINE)
-                    {
-                        if (!thread_busy)
-                        {
-                            // start the thread
-                            pthread_create(&thread, NULL, task, NULL);
-                            // forget that the thread is started, the task task_ready indicates when the thread is finished
-                            pthread_detach(thread);
-                        }
-                        else if (task_ready) // thread is finished
-                        {
-                            process_move(get_move_source(pv_table[0][0]), get_move_target(pv_table[0][0]), gui_movelist);
-                            selected_piece = 99;
-                            selected_square = 99;
-                            fill_gui_board();
-                            fill_options(gui_movelist);
-                            thread_busy = 0;
-                        }
-                    }
-                    else if (counter % 10 == 0)
-                    {
-                        U64 bestmove = gui_movelist->moves[GetRandomValue(0, gui_movelist->counter - 1)];
-                        process_move(get_move_source(bestmove), get_move_target(bestmove), gui_movelist);
-                        selected_piece = 99;
-                        selected_square = 99;
-                        fill_gui_board();
-                        fill_options(gui_movelist);
-                    }
+                    task_ready = 0;
+                    thread_busy = 0;
                 }
+#else
+                if (counter % 10 == 0)
+                {
+                    U64 bestmove = gui_movelist->moves[GetRandomValue(0, gui_movelist->counter - 1)];
+                    process_move(get_move_source(bestmove), get_move_target(bestmove), gui_movelist);
+                    selected_piece = 99;
+                    selected_square = 99;
+                    fill_gui_board();
+                    fill_options(gui_movelist);
+                }
+#endif
             }
         }
     }
