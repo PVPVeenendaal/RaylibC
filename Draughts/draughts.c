@@ -8,6 +8,7 @@
 #include <pthread.h>
 
 #define TEST 0
+#define TTT 0
 #define USE_ENGINE 1
 #define SIZE 10
 #define INFINITY 50000
@@ -36,24 +37,11 @@
 #define MAX_PLUS 30
 #define MIN_PLUS 0
 
-#define title "Draughts in Raylib-C (C)2025 Peter Veenendaal; versie: 0.80"
+#define title "Draughts in Raylib-C (C)2025 Peter Veenendaal; versie: 0.90"
 
 // define min max macros
 #define Max(a, b) ((a) >= (b) ? (a) : (b))
 #define Min(a, b) ((a) <= (b) ? (a) : (b))
-
-#ifdef NDEBUG // release mode
-#define PrintAssert(ignore) (void *)0
-#else
-#define PrintAssert(expr)                       \
-    if (!(expr))                                \
-    {                                           \
-        printf("%s%s\n%s%s\n%s%d\n\n",          \
-               "Assertion is not true:", #expr, \
-               "in file ", __FILE__,            \
-               "on line ", __LINE__);           \
-    }
-#endif
 
 // search values
 #define infinity 50000
@@ -148,6 +136,7 @@ typedef struct
     int gamelength;
 } game_t;
 
+#if (TTT)
 // transposition table data structure
 typedef struct
 {
@@ -156,6 +145,7 @@ typedef struct
     int flag;     // flag the type of node (fail-low/fail-high/PV)
     int score;    // score (alpha/beta/PV)
 } tt;             // transposition table (TT aka hash table)
+#endif
 
 // squares
 //    0  1  2  3  4  5  6  7  8  9
@@ -1029,8 +1019,8 @@ void init_board()
 
 // encode move
 #define encode_move(source, target, capture) \
-    ((U64)(capture) |                             \
-     ((U64)(source) << 52) |                      \
+    ((U64)(capture) |                        \
+     ((U64)(source) << 52) |                 \
      ((U64)(target) << 58))
 
 // extract source square
@@ -1493,6 +1483,7 @@ static int score = 0;
  ==================================
 \**********************************/
 
+#if (TTT)
 // number hash table entries
 int hash_entries = 0;
 
@@ -1612,6 +1603,7 @@ static inline void write_hash_entry(int score, int depth, int hash_flag)
     hash_entry->flag = hash_flag;
     hash_entry->depth = depth;
 }
+#endif
 
 // enable PV move scoring
 static inline void enable_pv_scoring(moves_t *move_list)
@@ -1799,9 +1791,21 @@ static inline int negamax(int alpha, int beta, int depth)
     // variable to store current move's score (from the static evaluation perspective)
     int score = 0;
 
+#if (TTT)
     // define hash flag
     int hash_flag = hash_flag_alpha;
+#endif
 
+    if (fifty >= 100)
+    {
+#ifndef NDEBUG
+        printf("Draw score");
+#endif
+        // return draw score
+        return 0;
+    }
+
+#if (TTT)
     // a hack by Pedro Castro to figure out whether the current node is PV node or not
     int pv_node = beta - alpha > 1;
 
@@ -1816,6 +1820,7 @@ static inline int negamax(int alpha, int beta, int depth)
 #endif
         return score;
     }
+#endif
 
     // every stop thinking flag nodes
     if ((nodes & 2047) == 0)
@@ -1900,9 +1905,11 @@ static inline int negamax(int alpha, int beta, int depth)
         // found a better move
         if (score > alpha)
         {
+#if (TTT)
             // switch hash flag from storing score for fail-low node
             // to the one storing score for PV node
             hash_flag = hash_flag_exact;
+#endif
 
             // PV node (position)
             alpha = score;
@@ -1921,9 +1928,10 @@ static inline int negamax(int alpha, int beta, int depth)
             // fail-hard beta cutoff
             if (score >= beta)
             {
+#if (TTT)
                 // store hash entry with the score equal to beta
                 write_hash_entry(beta, depth, hash_flag_beta);
-
+#endif
                 // node (position) fails high
                 return beta;
             }
@@ -1934,7 +1942,9 @@ static inline int negamax(int alpha, int beta, int depth)
     if (legal_moves == 0)
         return evaluate();
 
+#if (TTT)
     write_hash_entry(alpha, depth, hash_flag);
+#endif
 
     // node (position) fails low
     return alpha;
@@ -2103,12 +2113,6 @@ static int task_ready = 0;
 // flag that indicates that the ai is thinking
 static int thread_busy = 0;
 
-// game notation
-FILE *game_ptr = NULL;
-
-// file for notation
-char file_name[20];
-
 // show text in the terminal
 void show_text()
 {
@@ -2179,7 +2183,7 @@ void fill_options(moves_t *movelist)
         U64 cap = get_move_capture(m);
         set_bit(move_options, sqf);
         set_bit(square_options[sqf], sqt);
-        cap_options[sqf] |=cap;
+        cap_options[sqf] |= cap;
     }
 }
 
@@ -2222,12 +2226,6 @@ int test_for_draw_repetition()
     {
         game_state = Game_stop;
         game_end_reason = draw3;
-        if (game_ptr)
-        {
-            fprintf(game_ptr, "\n\nremise door herhaling van zetten\n");
-            fclose(game_ptr);
-            game_ptr = NULL;
-        }
         return 1;
     }
     return 0;
@@ -2242,25 +2240,6 @@ void process_move(const int selected_piece, const int selected_square, moves_t *
         {
             last_move[side] = movelist->moves[i];
             ++move_counter[side];
-            char text0[3];
-            intToStr(move_counter[side], text0);
-            char *text1 = squarenumber[get_move_source(last_move[side])];
-            char *text2 = squarenumber[get_move_target(last_move[side])];
-            char *text3 = get_move_capture(last_move[side]) ? "x" : "-";
-            if (game_ptr != NULL)
-            {
-                if (side == white)
-                    fprintf(game_ptr, "%3s ", text0);
-                fprintf(game_ptr, "%s", text1);
-                fprintf(game_ptr, "%s", text3);
-                fprintf(game_ptr, "%s ", text2);
-                if (side == black)
-                    fprintf(game_ptr, "\n");
-            }
-            else
-            {
-                printf("Could not open file %s\n", file_name);
-            }
             make_move(movelist->moves[i], all_moves);
             game_keys->hash_keys[game_keys->gamelength++] = hash_key;
             test_for_draw_repetition();
@@ -2348,8 +2327,10 @@ void new_game(const int state, moves_t *movelist)
     fill_clocktime(black);
     press_clock = 1;
     init_board();
+#if (TTT)
     // clear the hash table
     clear_hash_table();
+#endif
     gui_side = side;
     generate_moves(movelist);
 #ifndef NDEBUG
@@ -2392,26 +2373,6 @@ void *task(void *arg)
     return NULL;
 }
 
-// open file for game writing
-void start_writing(int who, int xwho)
-{
-    time_t now = time(NULL);
-    struct tm *t = localtime(&now);
-    strftime(file_name, sizeof(file_name) - 1, "./%Y%m%d_%H%M.ntb", t);
-    game_ptr = fopen(file_name, "w");
-    if (game_ptr == NULL)
-        return;
-    if (who == human_player)
-        fprintf(game_ptr, "human - ");
-    else if (who == ai_player)
-        fprintf(game_ptr, "ai - ");
-    if (xwho == human_player)
-        fprintf(game_ptr, "human\n");
-    else if (xwho == ai_player)
-        fprintf(game_ptr, "ai\n");
-    fprintf(game_ptr, "Bedenktijd: %d min %d sec/zet\n--------------------\n", (timer[white] / 60), plustimer[white]);
-}
-
 //-----------------------------------------------
 // MAIN
 //-----------------------------------------------
@@ -2419,7 +2380,9 @@ void start_writing(int who, int xwho)
 int main()
 {
     init_bb_dir();
+#if (TTT)
     init_hash_table(128);
+#endif
     new_game(Game_start, gui_movelist);
     int counter = 0;
 
@@ -2478,12 +2441,6 @@ int main()
             game_winner = both;
             game_state = Game_stop;
             game_end_reason = draw50;
-            if (game_ptr)
-            {
-                fprintf(game_ptr, "\n\nremise door de 50 zetten regel\n");
-                fclose(game_ptr);
-                game_ptr = NULL;
-            }
         }
         if (gui_movelist->counter == 0)
         {
@@ -2492,24 +2449,12 @@ int main()
                 game_winner = black;
                 game_state = Game_stop;
                 game_end_reason = wMove;
-                if (game_ptr)
-                {
-                    fprintf(game_ptr, "\n\nzwart wint doordat wit niet meer kan zetten\n");
-                    fclose(game_ptr);
-                    game_ptr = NULL;
-                }
             }
             else
             {
                 game_winner = white;
                 game_state = Game_stop;
                 game_end_reason = bMove;
-                if (game_ptr)
-                {
-                    fprintf(game_ptr, "\n\nwit wint doordat zwart niet meer kan zetten\n");
-                    fclose(game_ptr);
-                    game_ptr = NULL;
-                }
             }
         }
         if (game_state == Game_play)
@@ -2520,26 +2465,7 @@ int main()
             {
                 game_state = Game_stop;
                 game_winner = gui_side ^ 1;
-                if (game_winner == black)
-                {
-                    game_end_reason = wTime;
-                    if (game_ptr)
-                    {
-                        fprintf(game_ptr, "\n\nzwart wint doordat wit geen tijd meer heeft\n");
-                        fclose(game_ptr);
-                        game_ptr = NULL;
-                    }
-                }
-                else
-                {
-                    game_end_reason = bTime;
-                    if (game_ptr)
-                    {
-                        fprintf(game_ptr, "\n\nwit wint doordat zwart geen tijd meer heeft\n");
-                        fclose(game_ptr);
-                        game_ptr = NULL;
-                    }
-                }
+                game_end_reason = (game_winner == black) ? wTime : bTime;
             }
             else // update timer
             {
@@ -2750,6 +2676,9 @@ int main()
             case draw3:
                 text = "remise door herhaling van zetten";
                 break;
+            default:
+                text = "unknown";
+                break;
             }
             DrawText(
                 text,
@@ -2879,7 +2808,6 @@ int main()
             reversed = 0;
             human_player = white;
             ai_player = black;
-            start_writing(human_player, ai_player);
             if (game_state == Game_stop)
                 new_game(Game_play, gui_movelist);
             else
@@ -2890,7 +2818,6 @@ int main()
             reversed = 1;
             human_player = black;
             ai_player = white;
-            start_writing(ai_player, human_player);
             if (game_state == Game_stop)
                 new_game(Game_play, gui_movelist);
             else
@@ -2901,7 +2828,6 @@ int main()
             reversed = 0;
             human_player = both;
             ai_player = -1;
-            start_writing(human_player, human_player);
             if (game_state == Game_stop)
                 new_game(Game_play, gui_movelist);
             else
@@ -2912,7 +2838,6 @@ int main()
             reversed = 0;
             human_player = -1;
             ai_player = both;
-            start_writing(ai_player, ai_player);
             if (game_state == Game_stop)
                 new_game(Game_play, gui_movelist);
             else
@@ -2978,26 +2903,7 @@ int main()
         {
             game_state = Game_stop;
             game_winner = side ^= 1;
-            if (game_winner == black)
-            {
-                game_end_reason = wResign;
-                if (game_ptr)
-                {
-                    fprintf(game_ptr, "\n\nzwart wint omdat wit op geeft\n");
-                    fclose(game_ptr);
-                    game_ptr = NULL;
-                }
-            }
-            else
-            {
-                game_end_reason = bResign;
-                if (game_ptr)
-                {
-                    fprintf(game_ptr, "\n\nwit wint omdat zwart op geeft\n");
-                    fclose(game_ptr);
-                    game_ptr = NULL;
-                }
-            }
+            game_end_reason = (game_winner == black) ? wResign : bResign;
         }
         else if (IsKeyPressed(KEY_ENTER) && game_state == Game_play)
         {
@@ -3076,9 +2982,6 @@ int main()
         }
     }
 
-    if (game_ptr != NULL)
-        fclose(game_ptr);
-
     // clean up
     // to stop searching rapidly when a thread is started
     stop_game_flag = 1;
@@ -3092,8 +2995,10 @@ int main()
         }
     }
 
+#if (TTT)
     // free hash table memory on exit
     free(hash_table);
+#endif
 
     // unload the images
     UnloadTexture(img_empty);
