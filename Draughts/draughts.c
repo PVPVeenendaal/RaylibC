@@ -37,7 +37,7 @@
 #define MAX_PLUS 30
 #define MIN_PLUS 0
 
-#define title "Draughts in Raylib-C (C)2025 Peter Veenendaal; versie: 1.00"
+#define title "Draughts in Raylib-C (C)2025 Peter Veenendaal; versie: 1.10"
 
 // define min max macros
 #define Max(a, b) ((a) >= (b) ? (a) : (b))
@@ -110,19 +110,6 @@ enum
     draw3,   // draw by repetition
 };
 
-// squares
-//    0  1  2  3  4  5  6  7  8  9
-// 0  -  1  -  2  -  3  -  4  -  5
-// 1  6  -  7  -  8  -  9  - 10  -
-// 2  - 11  - 12  - 13  - 14  - 15
-// 3 16  - 17  - 18  - 19  - 20  -
-// 4  - 21  - 22  - 23  - 24  - 25
-// 5 26  - 27  - 28  - 29  - 30  -
-// 6  - 31  - 32  - 33  - 34  - 35
-// 7 36  - 37  - 38  - 39  - 40  -
-// 8  - 41  - 42  - 43  - 44  - 45
-// 9 46  - 47  - 48  - 49  - 50  -
-
 typedef struct
 {
     U64 moves[256];
@@ -169,7 +156,7 @@ const int squares[10][10] = {
     {26, 0, 27, 0, 28, 0, 29, 0, 30, 0},
     {0, 31, 0, 32, 0, 33, 0, 34, 0, 35},
     {36, 0, 37, 0, 38, 0, 39, 0, 40, 0},
-    {0, 41, 0, 42, 0, 43, 0, 44, 9, 45},
+    {0, 41, 0, 42, 0, 43, 0, 44, 0, 45},
     {46, 0, 47, 0, 48, 0, 49, 0, 50, 0},
 };
 
@@ -636,7 +623,7 @@ void set_occupancies()
 }
 
 // Print the board
-void printBoard()
+void print_board()
 {
 #ifndef NDEBUG // print only in debug mode
     printf("   ");
@@ -665,6 +652,15 @@ void printBoard()
         }
         printf("\n");
     }
+
+    // print side to move
+    printf("     Side:     %s\n", !side ? "white" : "black");
+
+    // fifty move rule counter
+    printf("     50 moves rule: %d\n", (fifty / 2));
+
+    // print hash key
+    printf("     Hash key:  %llu\n", hash_key);
 #endif
 }
 
@@ -1150,7 +1146,13 @@ void write_fen()
 // Initialize the board with starting positions
 void init_board()
 {
+    // initialize random keys
+    init_random_keys();
+
+    // read fen with start position
     read_fen("W:W31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50:B1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20");
+
+    print_board();
 
     all_squares = 0ULL;
     for (int i = 1; i <= 50; ++i)
@@ -1162,8 +1164,6 @@ void init_board()
         print_bitboard(occupancies[i]);
     print_bitboard(all_squares);
 
-    // initialize random keys
-    init_random_keys();
     // reset 50 moves counter
     fifty = 0;
 }
@@ -2025,7 +2025,7 @@ static inline int negamax(int alpha, int beta, int depth)
     // we just return the score for this move without searching it
     {
 #ifndef NDEBUG
-        printf("hash_entry found: %d\n", score);
+        printf("hash_entry found: %d %d %d %d\n", alpha, beta, depth, score);
 #endif
         return score;
     }
@@ -2149,7 +2149,7 @@ static inline int negamax(int alpha, int beta, int depth)
 
     // we don't have any legal moves to make in the current postion
     if (legal_moves == 0)
-        return evaluate();
+        return 0;
 
 #if (TTT)
     write_hash_entry(alpha, depth, hash_flag);
@@ -2457,15 +2457,13 @@ void process_move(const int selected_piece, const int selected_square, moves_t *
             make_move(movelist->moves[i], all_moves);
             game_keys->hash_keys[game_keys->gamelength++] = hash_key;
             test_for_draw_repetition();
+            print_board();
             break;
         }
     }
     gui_side = side;
     generate_moves(movelist);
     write_fen();
-#ifndef NDEBUG // print only in debug mode
-    printf("side to move: %d, eval: %d\n", gui_side, evaluate());
-#endif
     print_movelist(movelist);
     timer[side ^ 1] += plustimer[side ^ 1];
     press_clock = 1;

@@ -3925,9 +3925,14 @@ static inline int negamax(int alpha, int beta, int depth)
     // read hash entry if we're not in a root ply and hash entry is available
     // and current node is not a PV node
     if (ply && (score = read_hash_entry(alpha, beta, depth)) != no_hash_entry && pv_node == 0)
+    {
         // if the move has already been searched (hence has a value)
         // we just return the score for this move without searching it
+#ifndef NDEBUG
+        // printf("found hash_entry, score : %d %d %d %d\n", alpha, beta, depth, score);
+#endif
         return score;
+    }
 
     // every 2047 nodes
     if ((nodes & 2047) == 0)
@@ -4511,7 +4516,7 @@ int press_clock;
 int timer[2] = {600, 600};
 
 // add time after each move in seconds
-int plustimer[2] = {0,0};
+int plustimer[2] = {0, 0};
 
 // for drawing the time on the clock
 int clocktime[2][5];
@@ -4716,7 +4721,7 @@ void draw_board()
             DrawText(y_co[i], brd_col - HALF_SQUARE_SIZE, brd_row + i * SQUARE_SIZE + HALF_SQUARE_SIZE, 20, WHITE);
         }
     }
-    
+
     // Draw pieces
     for (int y = 0; y < 8; ++y)
     {
@@ -4852,10 +4857,9 @@ void game_end_check()
             }
         }
 
-    
-        // material
-    int count_pieces[12] = {0,0,0,0,0,0,0,0,0,0,0,0};
-    int total_pieces[2] = {0,0};
+    // material
+    int count_pieces[12] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+    int total_pieces[2] = {0, 0};
     int draw = 0;
 
     // count the pieces per piecetype
@@ -4876,7 +4880,7 @@ void game_end_check()
             draw = 1;
         else if (total_pieces[black] == 3 && (count_pieces[n] == 2))
             draw = 1;
-    }  
+    }
     else if (total_pieces[white] == 2 && (count_pieces[N] == 1 || count_pieces[B] == 1))
     {
         if (total_pieces[black] == 1)
@@ -4886,7 +4890,7 @@ void game_end_check()
     }
     else if (total_pieces[white] == 3 && count_pieces[N] == 2 && total_pieces[black] == 1)
         draw = 1;
-    
+
     if (draw)
     {
         gamestate = StopGame;
@@ -5183,7 +5187,7 @@ int main()
         int clock_col = brd_col + BOARD_SIZE - SQUARE_SIZE * 3;
         int clock_row = 0;
         draw_clocktime(clock_col, clock_row);
-        
+
         if (!thread_busy)
             // choice promotion piece
             if (promotion && promotionmove == -1 && (human_player == side || human_player == both))
@@ -5217,10 +5221,10 @@ int main()
         if (gamestate == StartGame || gamestate == StopGame)
         {
             DrawText(
-                "Kies kleur: F5 = Wit, F6 = Zwart, F7 = Beide, F8 = Auto ", 
-                SQUARE_SIZE, 
-                SCREEN_HEIGHT - 25, 
-                20, 
+                "Kies kleur: F5 = Wit, F6 = Zwart, F7 = Beide, F8 = Auto ",
+                SQUARE_SIZE,
+                SCREEN_HEIGHT - 25,
+                20,
                 YELLOW);
             DrawText(
                 "Tijd per spel: A=+5min, B=-5min, C=+1min, D=-1min",
@@ -5237,10 +5241,10 @@ int main()
             if (gamestate == StopGame)
             {
                 DrawText(
-                    text_game_end[game_end], 
-                    SQUARE_SIZE, 
-                    SCREEN_HEIGHT - 50, 
-                    20, 
+                    text_game_end[game_end],
+                    SQUARE_SIZE,
+                    SCREEN_HEIGHT - 50,
+                    20,
                     PURPLE);
             }
         }
@@ -5281,14 +5285,14 @@ int main()
                 int posx = SQUARE_SIZE;
                 int posy = (reversed) ? SQUARE_SIZE * 2 + BOARD_SIZE + HALF_SQUARE_SIZE : HALF_SQUARE_SIZE;
                 char *pstr[12] = {" ", "P", "L", "T", "D", "K", " ", "P", "L", "T", "D", "K"};
-                
+
                 DrawText(
                     text0,
                     posx,
                     posy,
                     18,
-                    LIGHTGRAY);        
-                    
+                    LIGHTGRAY);
+
                 if (cas)
                 {
                     if (sqt == g8)
@@ -5305,11 +5309,11 @@ int main()
                             posy,
                             18,
                             LIGHTGRAY);
-                } 
+                }
                 else
                 {
                     char *capstr = cap ? "x" : "-";
-                    char *text1 = concat(pstr[pic], square_to_coordinates[sqf]); 
+                    char *text1 = concat(pstr[pic], square_to_coordinates[sqf]);
                     char *text2 = concat(text1, capstr);
                     char *text3 = concat(text2, square_to_coordinates[sqt]);
                     char *prostr = pp ? concat("=", pstr[pp]) : " ";
@@ -5339,16 +5343,16 @@ int main()
                 int cas = get_move_castling(last_move[white]);
 
                 int posx = SQUARE_SIZE;
-                int posy = (reversed) ? HALF_SQUARE_SIZE : SQUARE_SIZE  * 2 + BOARD_SIZE + HALF_SQUARE_SIZE;
+                int posy = (reversed) ? HALF_SQUARE_SIZE : SQUARE_SIZE * 2 + BOARD_SIZE + HALF_SQUARE_SIZE;
                 char *pstr[12] = {" ", "P", "L", "T", "D", "K", " ", "P", "L", "T", "D", "K"};
-                
+
                 DrawText(
                     text0,
                     posx,
                     posy,
                     18,
-                    WHITE);        
-                    
+                    WHITE);
+
                 if (cas)
                 {
                     if (sqt == g1)
@@ -5365,11 +5369,11 @@ int main()
                             posy,
                             18,
                             WHITE);
-                } 
+                }
                 else
                 {
                     char *capstr = cap ? "x" : "-";
-                    char *text1 = concat(pstr[pic], square_to_coordinates[sqf]); 
+                    char *text1 = concat(pstr[pic], square_to_coordinates[sqf]);
                     char *text2 = concat(text1, capstr);
                     char *text3 = concat(text2, square_to_coordinates[sqt]);
                     char *prostr = pp ? concat("=", pstr[pp]) : " ";

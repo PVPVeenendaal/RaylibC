@@ -1,9 +1,9 @@
 Mac:
 
 Debug:
-eval cc draughts.c -g -O0 -Wall -framework IOKit -framework Cocoa -framework OpenGL $(pkg-config --libs --cflags raylib) -o debdraughts
+eval cc draughts.c -g -O0 -Wall -std=c17 -framework IOKit -framework Cocoa -framework OpenGL $(pkg-config --libs --cflags raylib) -o debdraughts
 Release:
-eval cc draughts.c -O2 -DNDEBUG -framework IOKit -framework Cocoa -framework OpenGL $(pkg-config --libs --cflags raylib) -o macdraughts
+eval cc draughts.c -O2 -DNDEBUG -std=c17 -framework IOKit -framework Cocoa -framework OpenGL $(pkg-config --libs --cflags raylib) -o macdraughts
 
 Windows: 
 
