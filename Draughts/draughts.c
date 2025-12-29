@@ -37,7 +37,7 @@
 #define MAX_PLUS 30
 #define MIN_PLUS 0
 
-#define title "Draughts in Raylib-C (C)2025 Peter Veenendaal; versie: 0.90"
+#define title "Draughts in Raylib-C (C)2025 Peter Veenendaal; versie: 1.00"
 
 // define min max macros
 #define Max(a, b) ((a) >= (b) ? (a) : (b))
@@ -254,65 +254,224 @@ const int square_rank[51] =
         9, 9, 9, 9, 9,
         10, 10, 10, 10, 10};
 
-const int dir[4][52] = {
-    {                    // nw
-     0,                  // 0 at start
-     0, 0, 0, 0, 0,      // 01 - 05
-     0, 1, 2, 3, 4,      // 06 - 10
-     6, 7, 8, 9, 10,     // 11 - 15
-     0, 11, 12, 13, 14,  // 16 - 20
-     16, 17, 18, 19, 20, // 21 - 25
-     0, 21, 22, 23, 24,  // 26 - 30
-     26, 27, 28, 29, 30, // 31 - 35
-     0, 31, 32, 33, 34,  // 36 - 40
-     36, 37, 38, 39, 40, // 41 - 45
-     0, 41, 42, 43, 44,  // 46 - 50
-     0},
+const int dnw[51] =
     {
-        // ne
-        0,                  // 0 at start
-        0, 0, 0, 0, 0,      //  01 - 05
-        1, 2, 3, 4, 5,      //  06 - 10
-        7, 8, 9, 10, 0,     //  11 - 15
-        11, 12, 13, 14, 15, //  16 - 20
-        17, 18, 19, 20, 0,  //  21 - 25
-        21, 22, 23, 24, 25, //  26 - 30
-        27, 28, 29, 30, 0,  //  31 - 35
-        31, 32, 33, 34, 35, //  36 - 40
-        37, 38, 39, 40, 0,  //  41 - 45
-        41, 42, 43, 44, 45, //  46 - 50
-        0                   // 0 at end
-    },
+        0, // 0 at start
+        0,
+        0,
+        0,
+        0,
+        0, // 01 - 05
+        0,
+        1,
+        2,
+        3,
+        4, // 06 - 10
+        6,
+        7,
+        8,
+        9,
+        10, // 11 - 15
+        0,
+        11,
+        12,
+        13,
+        14, // 16 - 20
+        16,
+        17,
+        18,
+        19,
+        20, // 21 - 25
+        0,
+        21,
+        22,
+        23,
+        24, // 26 - 30
+        26,
+        27,
+        28,
+        29,
+        30, // 31 - 35
+        0,
+        31,
+        32,
+        33,
+        34, // 36 - 40
+        36,
+        37,
+        38,
+        39,
+        40, // 41 - 45
+        0,
+        41,
+        42,
+        43,
+        44, // 46 - 50
+};
+
+const int dne[51] =
     {
-        // se
-        0,                  // 0 at start
-        7, 8, 9, 10, 0,     // 01 - 05
-        11, 12, 13, 14, 15, // 06 - 10
-        17, 18, 19, 20, 0,  // 11 - 15
-        21, 22, 23, 24, 25, // 16 - 20
-        27, 28, 29, 30, 0,  // 21 - 25
-        31, 32, 33, 34, 35, // 26 - 30
-        37, 38, 39, 40, 0,  // 31 - 35
-        41, 42, 43, 44, 45, // 36 - 40
-        47, 48, 49, 50, 0,  // 41 - 45
-        0, 0, 0, 0, 0,      // 46 - 50
-        0                   // 0 at end
-    },
+        0, // 0 at start
+        0,
+        0,
+        0,
+        0,
+        0, //  01 - 05
+        1,
+        2,
+        3,
+        4,
+        5, //  06 - 10
+        7,
+        8,
+        9,
+        10,
+        0, //  11 - 15
+        11,
+        12,
+        13,
+        14,
+        15, //  16 - 20
+        17,
+        18,
+        19,
+        20,
+        0, //  21 - 25
+        21,
+        22,
+        23,
+        24,
+        25, //  26 - 30
+        27,
+        28,
+        29,
+        30,
+        0, //  31 - 35
+        31,
+        32,
+        33,
+        34,
+        35, //  36 - 40
+        37,
+        38,
+        39,
+        40,
+        0, //  41 - 45
+        41,
+        42,
+        43,
+        44,
+        45, //  46 - 50
+};
+
+const int dsw[51] =
     {
-        // sw
-        0,                  // 0 at start
-        6, 7, 8, 9, 10,     // 01 - 05
-        0, 11, 12, 13, 14,  // 06 - 10
-        16, 17, 18, 19, 20, // 11 - 15
-        0, 21, 22, 23, 24,  // 16 - 20
-        26, 27, 28, 29, 30, // 21 - 25
-        0, 31, 32, 33, 34,  // 26 - 30
-        36, 37, 38, 39, 40, // 31 - 35
-        0, 41, 42, 43, 44,  // 36 - 40
-        46, 47, 48, 49, 50, // 41 - 45
-        0, 0, 0, 0, 0,      // 46 - 50
-        0                   // 0 at end
-    },
+        0, // 0 at start
+        6,
+        7,
+        8,
+        9,
+        10, // 01 - 05
+        0,
+        11,
+        12,
+        13,
+        14, // 06 - 10
+        16,
+        17,
+        18,
+        19,
+        20, // 11 - 15
+        0,
+        21,
+        22,
+        23,
+        24, // 16 - 20
+        26,
+        27,
+        28,
+        29,
+        30, // 21 - 25
+        0,
+        31,
+        32,
+        33,
+        34, // 26 - 30
+        36,
+        37,
+        38,
+        39,
+        40, // 31 - 35
+        0,
+        41,
+        42,
+        43,
+        44, // 36 - 40
+        46,
+        47,
+        48,
+        49,
+        50, // 41 - 45
+        0,
+        0,
+        0,
+        0,
+        0, // 46 - 50
+};
+
+const int dse[51] =
+    {
+        0, // 0 at start
+        7,
+        8,
+        9,
+        10,
+        0, // 01 - 05
+        11,
+        12,
+        13,
+        14,
+        15, // 06 - 10
+        17,
+        18,
+        19,
+        20,
+        0, // 11 - 15
+        21,
+        22,
+        23,
+        24,
+        25, // 16 - 20
+        27,
+        28,
+        29,
+        30,
+        0, // 21 - 25
+        31,
+        32,
+        33,
+        34,
+        35, // 26 - 30
+        37,
+        38,
+        39,
+        40,
+        0, // 31 - 35
+        41,
+        42,
+        43,
+        44,
+        45, // 36 - 40
+        47,
+        48,
+        49,
+        50,
+        0, // 41 - 45
+        0,
+        0,
+        0,
+        0,
+        0, // 46 - 50
 };
 
 /**********************************\
@@ -1039,10 +1198,33 @@ void init_bb_dir()
 
     for (int d = nw; d <= se; ++d)
         for (int sq = 1; sq <= 50; ++sq)
-            if (dir[d][sq] == 0)
-                continue;
-            else
-                set_bit(bb_dir[d][sq], dir[d][sq]);
+            switch (d)
+            {
+            case nw:
+                if (dnw[sq] == 0)
+                    continue;
+                else
+                    set_bit(bb_dir[d][sq], dnw[sq]);
+                break;
+            case ne:
+                if (dne[sq] == 0)
+                    continue;
+                else
+                    set_bit(bb_dir[d][sq], dne[sq]);
+                break;
+            case sw:
+                if (dsw[sq] == 0)
+                    continue;
+                else
+                    set_bit(bb_dir[d][sq], dsw[sq]);
+                break;
+            case se:
+                if (dse[sq] == 0)
+                    continue;
+                else
+                    set_bit(bb_dir[d][sq], dse[sq]);
+                break;
+            }
 }
 
 // generate next captures
@@ -1055,26 +1237,27 @@ void generate_next_captures(moves_t *move_list)
 
     U64 capture = side == white ? occupancies[black] : occupancies[white];
     U64 empty = ~occupancies[both] & all_squares;
-    int sqf, sqt, sqo, piece;
+    int old_sqf, old_sqt, sqf, sqt, sqo, piece;
 
-    U64 b, e, cap;
+    U64 b, e, old_cap;
 
     for (int i = 0; i < old_list->counter; ++i)
     {
         U64 m = old_list->moves[i];
-        sqf = get_move_source(m);
-        sqt = get_move_target(m);
-        cap = get_move_capture(m);
-        if (get_bit(bitboards[wPawn], sqf))
+        old_sqf = get_move_source(m);
+        old_sqt = get_move_target(m);
+        old_cap = get_move_capture(m);
+        if (get_bit(bitboards[wPawn], old_sqf))
             piece = wPawn;
-        else if (get_bit(bitboards[bPawn], sqf))
+        else if (get_bit(bitboards[bPawn], old_sqf))
             piece = bPawn;
-        else if (get_bit(bitboards[wKing], sqf))
+        else if (get_bit(bitboards[wKing], old_sqf))
             piece = wKing;
-        else if (get_bit(bitboards[bKing], sqf))
+        else if (get_bit(bitboards[bKing], old_sqf))
             piece = bKing;
-        else piece = no_piece;
-        sqf = sqt;
+        else
+            piece = no_piece;
+        sqf = old_sqt;
         if (piece == wPawn || piece == bPawn)
         {
             for (int d = nw; d <= se; ++d)
@@ -1083,15 +1266,15 @@ void generate_next_captures(moves_t *move_list)
                 if (b)
                 {
                     sqo = get_ls1b_index(b);
-                    if (get_bit(cap, sqo)) // can't jump over a piece a second time
+                    if (get_bit(old_cap, sqo)) // can't jump over a piece a second time
                         continue;
                     e = empty & bb_dir[d][sqo];
                     if (e) // next capture found
                     {
                         sqt = get_ls1b_index(e);
-                        U64 newcap = cap;
+                        U64 newcap = old_cap;
                         set_bit(newcap, sqo);
-                        move_list->moves[move_list->counter] = encode_move(sqf, sqt, newcap);
+                        move_list->moves[move_list->counter] = encode_move(old_sqf, sqt, newcap);
                         ++move_list->counter;
                         move_list->caplength = old_list->caplength + 1;
                     }
@@ -1103,6 +1286,7 @@ void generate_next_captures(moves_t *move_list)
             // white or black king
             for (int d = nw; d <= se; ++d)
             {
+                sqf = old_sqt;
                 e = empty & bb_dir[d][sqf];
                 b = capture & bb_dir[d][sqf];
                 while (e)
@@ -1114,15 +1298,15 @@ void generate_next_captures(moves_t *move_list)
                 if (b)
                 {
                     sqo = get_ls1b_index(b);
-                    if (get_bit(cap, sqo)) // can't jump over a piece a second time
+                    if (get_bit(old_cap, sqo)) // can't jump over a piece a second time
                         continue;
                     e = empty & bb_dir[d][sqo];
                     while (e) // next capture(s) found
                     {
                         sqt = get_ls1b_index(e);
-                        U64 newcap = cap;
+                        U64 newcap = old_cap;
                         set_bit(newcap, sqo);
-                        move_list->moves[move_list->counter] = encode_move(sqf, sqt, newcap);
+                        move_list->moves[move_list->counter] = encode_move(old_sqf, sqt, newcap);
                         ++move_list->counter;
                         move_list->caplength = old_list->caplength + 1;
                         e = empty & bb_dir[d][sqt];
@@ -1280,6 +1464,10 @@ int make_move(U64 move, int move_type)
         // move
         pop_bit(bitboards[piece], sqf);
         set_bit(bitboards[piece], sqt);
+        // hash piece
+        hash_key ^= piece_keys[piece][sqf]; // remove piece from source square in hash key
+        hash_key ^= piece_keys[piece][sqt]; // set piece to the target square in hash key
+
         ++fifty;
 
         // capture
@@ -1300,6 +1488,8 @@ int make_move(U64 move, int move_type)
                     xside = bKing;
 
                 pop_bit(bitboards[xside], sqo);
+                // remove the piece from hash key
+                hash_key ^= piece_keys[xside][sqo];
                 pop_bit(c, sqo);
             }
         }
@@ -1307,20 +1497,38 @@ int make_move(U64 move, int move_type)
         // Promotion
         if (piece == bPawn && square_rank[sqt] == SIZE)
         {
+            // remove pawn from the bitboard
             pop_bit(bitboards[bPawn], sqt);
+            // remove pawn from the hash key
+            hash_key ^= piece_keys[bPawn][sqt];
+            // set king to the bitboard
             set_bit(bitboards[bKing], sqt);
+            // set king to the hash key
+            hash_key ^= piece_keys[bKing][sqt];
+
             fifty = 0; // reset fifty moves counter
         }
         if (piece == wPawn && square_rank[sqt] == 1)
         {
+            // remove pawn from the bitboard
             pop_bit(bitboards[wPawn], sqt);
+            // remove pawn from the hash key
+            hash_key ^= piece_keys[wPawn][sqt];
+            // set king to the bitboard
             set_bit(bitboards[wKing], sqt);
+            // set king to the hash key
+            hash_key ^= piece_keys[wKing][sqt];
+
             fifty = 0; // reset fifty moves counter
         }
 
         set_occupancies();
+
+        // change side
         side ^= 1;
-        hash_key = generate_hash_key();
+
+        // hash side
+        hash_key ^= side_key;
     }
     else
     {
@@ -2395,17 +2603,16 @@ int main()
     init_hash_table(128);
 #endif
     new_game(Game_start, gui_movelist);
-    int counter = 0;
-
     if (TEST)
     {
-        char *testfen = "W:WK41:B18,28,29,38,43";
+        char *testfen = "B:W29,30,31,33,35,36,37,38,39,41,46:B7,8,9,11,13,16,18,20,22,K23,26";
         read_fen(testfen);
         generate_moves(gui_movelist);
+        print_movelist(gui_movelist);
         fill_gui_board();
         fill_options(gui_movelist);
-        human_player = white;
-        ai_player = black;
+        human_player = both;
+        ai_player = -1;
         reversed = 0;
         game_state = Game_play;
     }
@@ -2441,7 +2648,6 @@ int main()
     while (!WindowShouldClose())
     {
         // update
-        ++counter;
         if (press_clock)
         {
             starttimer[gui_side] = get_time_ms();
@@ -2945,7 +3151,7 @@ int main()
         if (game_state == Game_play && (ai_player == gui_side || ai_player == both))
         {
             if (gui_movelist->counter > 0)
-            {   
+            {
 #if (USE_ENGINE)
                 if (!thread_busy)
                 {
@@ -2960,15 +3166,12 @@ int main()
                     thread_busy = 0;
                 }
 #else
-                if (counter % 10 == 0)
-                {
-                    U64 bestmove = gui_movelist->moves[GetRandomValue(0, gui_movelist->counter - 1)];
-                    process_move(get_move_source(bestmove), get_move_target(bestmove), gui_movelist);
-                    selected_piece = 99;
-                    selected_square = 99;
-                    fill_gui_board();
-                    fill_options(gui_movelist);
-                }
+                U64 bestmove = gui_movelist->moves[GetRandomValue(0, gui_movelist->counter - 1)];
+                process_move(get_move_source(bestmove), get_move_target(bestmove), gui_movelist);
+                selected_piece = 99;
+                selected_square = 99;
+                fill_gui_board();
+                fill_options(gui_movelist);
 #endif
             }
         }
