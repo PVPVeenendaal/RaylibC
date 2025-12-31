@@ -8,11 +8,16 @@
 #include <pthread.h>
 
 #define TEST 0
-#define TTT 1
 #define USE_ENGINE 1
 #define SIZE 10
 #define INFINITY 50000
 #define MAX_PLY 64
+
+#ifdef NDEBUG
+#define PRN_HASH_ENTRY 0
+#else
+#define PRN_HASH_ENTRY 0
+#endif
 
 // define bitboard data type
 #define U64 unsigned long long
@@ -123,7 +128,6 @@ typedef struct
     int gamelength;
 } game_t;
 
-#if (TTT)
 // transposition table data structure
 typedef struct
 {
@@ -132,7 +136,6 @@ typedef struct
     int flag;     // flag the type of node (fail-low/fail-high/PV)
     int score;    // score (alpha/beta/PV)
 } tt;             // transposition table (TT aka hash table)
-#endif
 
 // squares
 //    0  1  2  3  4  5  6  7  8  9
@@ -1158,7 +1161,7 @@ void init_board()
     for (int i = 1; i <= 50; ++i)
         set_bit(all_squares, i);
 
-    for (int i = 0; i < 4; ++i)
+    for (int i = wPawn; i <= bKing; ++i)
         print_bitboard(bitboards[i]);
     for (int i = 0; i < 3; ++i)
         print_bitboard(occupancies[i]);
@@ -1178,8 +1181,8 @@ void init_board()
 
 // encode move
 #define encode_move(source, target, capture) \
-    ((U64)(capture) |                        \
-     ((U64)(source) << 52) |                 \
+    ((U64)(capture) |                               \
+     ((U64)(source) << 52) |                        \
      ((U64)(target) << 58))
 
 // extract source square
@@ -1190,6 +1193,18 @@ void init_board()
 
 // extract capture
 #define get_move_capture(move) (((move) & all_squares))
+
+// extraxt piece moved
+int get_move_piece(U64 move)
+{
+    int sqf = get_move_source(move);
+    for (int p = wPawn; p <= bKing; ++p)
+    {
+        if get_bit(bitboards[p], sqf)
+            return p;
+    }
+    return no_piece;
+}
 
 // initialize bitboards dir
 void init_bb_dir()
@@ -1247,16 +1262,7 @@ void generate_next_captures(moves_t *move_list)
         old_sqf = get_move_source(m);
         old_sqt = get_move_target(m);
         old_cap = get_move_capture(m);
-        if (get_bit(bitboards[wPawn], old_sqf))
-            piece = wPawn;
-        else if (get_bit(bitboards[bPawn], old_sqf))
-            piece = bPawn;
-        else if (get_bit(bitboards[wKing], old_sqf))
-            piece = wKing;
-        else if (get_bit(bitboards[bKing], old_sqf))
-            piece = bKing;
-        else
-            piece = no_piece;
+        piece = get_move_piece(m);
         sqf = old_sqt;
         if (piece == wPawn || piece == bPawn)
         {
@@ -1339,6 +1345,7 @@ void generate_moves(moves_t *movelist)
 
     while (pawns)
     {
+
         sqf = get_ls1b_index(pawns);
         for (int d = nw; d <= se; ++d)
         {
@@ -1452,16 +1459,10 @@ int make_move(U64 move, int move_type)
 
     if (move_type == all_moves)
     {
-        if (get_bit(bitboards[wPawn], sqf))
-            piece = wPawn;
-        else if (get_bit(bitboards[bPawn], sqf))
-            piece = bPawn;
-        else if (get_bit(bitboards[wKing], sqf))
-            piece = wKing;
-        else if (get_bit(bitboards[bKing], sqf))
-            piece = bKing;
-
-        // move
+        // get the piece from the move to make
+        piece = get_move_piece(move);
+        
+        // move from de piece
         pop_bit(bitboards[piece], sqf);
         set_bit(bitboards[piece], sqt);
         // hash piece
@@ -1550,16 +1551,16 @@ int make_move(U64 move, int move_type)
 
 // piece score table
 const int PST_P[51] =
-    {0,                  // 0 at start
-     0, 0, 0, 0, 0,      //  01 - 05   piece promotion line
-     45, 50, 55, 50, 45, //  06 - 10
-     40, 45, 50, 45, 40, //  11 - 15
-     35, 40, 45, 40, 35, //  16 - 20
-     25, 30, 30, 25, 30, //  21 - 25   small threshold to prevent to optimistic behaviour
-     25, 30, 35, 30, 25, //  26 - 30
-     20, 15, 25, 20, 25, //  31 - 35
-     20, 15, 25, 20, 15, //  36 - 40
-     10, 15, 25, 20, 15, //  41 - 45
+    {0,                    // 0 at start
+     0, 0, 0, 0, 0,        //  01 - 05   piece promotion line
+     45, 50, 55, 50, 45,   //  06 - 10
+     40, 45, 50, 45, 40,   //  11 - 15
+     35, 40, 45, 40, 35,   //  16 - 20
+     25, 30, 30, 25, 30,   //  21 - 25   small threshold to prevent to optimistic behaviour
+     25, 30, 35, 30, 25,   //  26 - 30
+     20, 15, 25, 20, 25,   //  31 - 35
+     20, 15, 25, 20, 15,   //  36 - 40
+     10, 15, 25, 20, 15,   //  41 - 45
      5, 10, 15, 10, 5};  //  46 - 50
 
 const int PST_K[51] =
@@ -1574,6 +1575,23 @@ const int PST_K[51] =
      050, 050, 050, 050, 050,  //  36 - 40
      050, 050, 050, 050, 050,  //  41 - 45
      050, 050, 050, 050, 050}; //  46 - 50
+
+static inline int count_open_squares(int square)
+{
+    U64 empty = ~occupancies[both] & all_squares;
+    U64 e;
+
+    int cnt = 0;
+   
+    for (int d = ne; d <= se; ++d)
+    {
+        e = empty & bb_dir[d][square];
+        if (e)
+            ++cnt;
+    }
+    
+    return cnt;
+}
 
 // evaluate the position on the board
 static inline int evaluate()
@@ -1591,13 +1609,12 @@ static inline int evaluate()
         {
             int sq = get_ls1b_index(bb);
             if (get_bit(bitboards[wPawn], sq))
-                score += 1000 + PST_P[sq];
+                score += 1000 + PST_P[sq] - count_open_squares(sq);
             else if (get_bit(bitboards[wKing], sq))
                 score += 3000 + PST_K[sq];
             pop_bit(bb, sq);
         }
     }
-
     // black
     bb = occupancies[black];
     if (bb == 0ULL)
@@ -1608,7 +1625,7 @@ static inline int evaluate()
         {
             int sq = get_ls1b_index(bb);
             if (get_bit(bitboards[bPawn], sq))
-                score -= (1000 + PST_P[51 - sq]);
+                score -= (1000 + PST_P[51 - sq] - count_open_squares(sq));
             else if (get_bit(bitboards[bKing], sq))
                 score -= (3000 + PST_K[51 - sq]);
             pop_bit(bb, sq);
@@ -1678,11 +1695,14 @@ static int stoptime = 0;
 // flag that forces the thinking to stop
 static int stopped = 0;
 
-// falg that indicates that the game is stopped
+// flag that indicates that the game is stopped
 static int stop_game_flag = 0;
 
-// evalaation score
-static int score = 0;
+// killer moves [id][ply]
+int killer_moves[2][MAX_PLY];
+
+// history moves [piece][square]
+int history_moves[12][64];
 
 /**********************************\
  ==================================
@@ -1692,7 +1712,6 @@ static int score = 0;
  ==================================
 \**********************************/
 
-#if (TTT)
 // number hash table entries
 int hash_entries = 0;
 
@@ -1812,7 +1831,6 @@ static inline void write_hash_entry(int score, int depth, int hash_flag)
     hash_entry->flag = hash_flag;
     hash_entry->depth = depth;
 }
-#endif
 
 // enable PV move scoring
 static inline void enable_pv_scoring(moves_t *move_list)
@@ -1851,11 +1869,26 @@ static inline int score_move(U64 move)
             return 20000;
         }
     }
-
+    // captures
     if (get_move_capture(move) > 0ULL)
     {
         return 10000 + count_bits(get_move_capture(move));
     }
+    // score quiet move
+    else
+    {
+        // score 1st killer move
+        if (killer_moves[0][ply] == move)
+            return 9000;
+
+        // score 2nd killer move
+        else if (killer_moves[1][ply] == move)
+            return 8000;
+        // score history move
+        else
+            return history_moves[get_move_piece(move)][get_move_target(move)];
+    }
+
     return GetRandomValue(0, 1000);
 }
 
@@ -2000,21 +2033,18 @@ static inline int negamax(int alpha, int beta, int depth)
     // variable to store current move's score (from the static evaluation perspective)
     int score = 0;
 
-#if (TTT)
     // define hash flag
     int hash_flag = hash_flag_alpha;
-#endif
 
     if (fifty >= 100)
     {
-#ifndef NDEBUG
+#ifndef NDEBUG // print only in debug mode
         printf("Draw score");
 #endif
         // return draw score
         return 0;
     }
 
-#if (TTT)
     // a hack by Pedro Castro to figure out whether the current node is PV node or not
     int pv_node = beta - alpha > 1;
 
@@ -2024,12 +2054,11 @@ static inline int negamax(int alpha, int beta, int depth)
     // if the move has already been searched (hence has a value)
     // we just return the score for this move without searching it
     {
-#ifndef NDEBUG
-        printf("hash_entry found: %d %d %d %d\n", alpha, beta, depth, score);
+#if (PRN_HASH_ENTRY)
+        printf("*");
 #endif
         return score;
     }
-#endif
 
     // every stop thinking flag nodes
     if ((nodes & 2047) == 0)
@@ -2083,7 +2112,7 @@ static inline int negamax(int alpha, int beta, int depth)
         // make sure to make only legal moves
         if (make_move(move_list->moves[count], all_moves) == 0)
         {
-#ifndef NDEBUG
+#ifndef NDEBUG // print only in debug mode
             print_move(move_list->moves[count]);
             printf("Is not valid");
 #endif
@@ -2114,11 +2143,14 @@ static inline int negamax(int alpha, int beta, int depth)
         // found a better move
         if (score > alpha)
         {
-#if (TTT)
             // switch hash flag from storing score for fail-low node
             // to the one storing score for PV node
             hash_flag = hash_flag_exact;
-#endif
+
+            // on quiet moves
+            if (get_move_capture(move_list->moves[count]) == 0ULL)
+                // store history moves
+                history_moves[get_move_piece(move_list->moves[count])][get_move_target(move_list->moves[count])] += depth;
 
             // PV node (position)
             alpha = score;
@@ -2137,10 +2169,16 @@ static inline int negamax(int alpha, int beta, int depth)
             // fail-hard beta cutoff
             if (score >= beta)
             {
-#if (TTT)
                 // store hash entry with the score equal to beta
                 write_hash_entry(beta, depth, hash_flag_beta);
-#endif
+                // on quiet moves
+                if (get_move_capture(move_list->moves[count]) == 0)
+                {
+                    // store killer moves
+                    killer_moves[1][ply] = killer_moves[0][ply];
+                    killer_moves[0][ply] = move_list->moves[count];
+                }
+
                 // node (position) fails high
                 return beta;
             }
@@ -2151,9 +2189,7 @@ static inline int negamax(int alpha, int beta, int depth)
     if (legal_moves == 0)
         return 0;
 
-#if (TTT)
     write_hash_entry(alpha, depth, hash_flag);
-#endif
 
     // node (position) fails low
     return alpha;
@@ -2162,6 +2198,12 @@ static inline int negamax(int alpha, int beta, int depth)
 // search current position
 static inline int search_position(int depth)
 {
+    // search start time
+    int start = get_time_ms();
+
+    // define best score variable
+    int score = 0;
+
     // reset nodes counter
     nodes = 0;
 
@@ -2176,6 +2218,8 @@ static inline int search_position(int depth)
     ply = 0;
 
     // clear helper data structures for search
+    memset(killer_moves, 0, sizeof(killer_moves));
+    memset(history_moves, 0, sizeof(history_moves));
     memset(pv_table, 0, sizeof(pv_table));
     memset(pv_length, 0, sizeof(pv_length));
 
@@ -2189,7 +2233,7 @@ static inline int search_position(int depth)
         // if time is up
         if (stopped == 1)
         {
-#ifndef NDEBUG
+#ifndef NDEBUG // print only in debug mode
             printf("stop calculating...\n");
 #endif
             // stop calculating and return best move so far
@@ -2218,7 +2262,7 @@ static inline int search_position(int depth)
         if (pv_length[0])
         {
 #ifndef NDEBUG // print only in debug mode
-            printf("info score cp %d depth %d nodes %lld time %d pv ", score, current_depth, nodes, get_time_ms() - starttime);
+            printf("info score cp %d depth %d nodes %lld time %d pv ", score, current_depth, nodes, get_time_ms() - start);
             // loop over the moves within a PV line
             for (int count = 0; count < pv_length[0]; ++count)
             {
@@ -2326,6 +2370,12 @@ static int task_ready = 0;
 
 // flag that indicates that the ai is thinking
 static int thread_busy = 0;
+
+// keep the initial timer setting
+int keep_timer;
+
+// keep the initial plustimer setting
+int keep_plus_timer;
 
 // show text in the terminal
 void show_text()
@@ -2528,24 +2578,22 @@ void process_mouseclick(const int x, const int y, moves_t *movelist)
 }
 
 // start a new game
-void new_game(const int state, moves_t *movelist)
+void new_game(const int state, moves_t *movelist, int time, int plus)
 {
     // set timer settings for the clock
-    timer[white] = timer[black] = 600;
-    plustimer[white] = plustimer[black] = 0;
+    timer[white] = timer[black] = keep_timer = time;
+    plustimer[white] = plustimer[black] = keep_plus_timer = plus;
     thinktimer[white] = thinktimer[black] = 0;
     // fill the clock settings
     fill_clocktime(white);
     fill_clocktime(black);
     press_clock = 1;
     init_board();
-#if (TTT)
     // clear the hash table
     clear_hash_table();
-#endif
     gui_side = side;
     generate_moves(movelist);
-#ifndef NDEBUG
+#ifndef NDEBUG // print only in debug mode
     print_movelist(movelist);
 #endif
     fill_gui_board();
@@ -2597,10 +2645,8 @@ void *task(void *arg)
 int main()
 {
     init_bb_dir();
-#if (TTT)
     init_hash_table(128);
-#endif
-    new_game(Game_start, gui_movelist);
+    new_game(Game_start, gui_movelist, 600, 0);
     if (TEST)
     {
         char *testfen = "B:W29,30,31,33,35,36,37,38,39,41,46:B7,8,9,11,13,16,18,20,22,K23,26";
@@ -3024,7 +3070,7 @@ int main()
             human_player = white;
             ai_player = black;
             if (game_state == Game_stop)
-                new_game(Game_play, gui_movelist);
+                new_game(Game_play, gui_movelist, keep_timer, keep_plus_timer);
             else
                 game_state = Game_play;
         }
@@ -3034,7 +3080,7 @@ int main()
             human_player = black;
             ai_player = white;
             if (game_state == Game_stop)
-                new_game(Game_play, gui_movelist);
+                new_game(Game_play, gui_movelist, keep_timer, keep_plus_timer);
             else
                 game_state = Game_play;
         }
@@ -3044,7 +3090,7 @@ int main()
             human_player = both;
             ai_player = -1;
             if (game_state == Game_stop)
-                new_game(Game_play, gui_movelist);
+                new_game(Game_play, gui_movelist, keep_timer, keep_plus_timer);
             else
                 game_state = Game_play;
         }
@@ -3054,7 +3100,7 @@ int main()
             human_player = -1;
             ai_player = both;
             if (game_state == Game_stop)
-                new_game(Game_play, gui_movelist);
+                new_game(Game_play, gui_movelist, keep_timer, keep_plus_timer);
             else
                 game_state = Game_play;
         }
@@ -3062,7 +3108,7 @@ int main()
         {
             if (timer[white] + 5 * 60 <= MAX_TIME * 60)
             {
-                timer[white] = timer[black] = timer[white] + 5 * 60;
+                timer[white] = timer[black] = keep_timer = timer[white] + 5 * 60;
                 fill_clocktime(white);
                 fill_clocktime(black);
             }
@@ -3071,7 +3117,7 @@ int main()
         {
             if (timer[white] - 5 * 60 >= MIN_TIME * 60)
             {
-                timer[white] = timer[black] = timer[white] - 5 * 60;
+                timer[white] = timer[black] = keep_timer = timer[white] - 5 * 60;
                 fill_clocktime(white);
                 fill_clocktime(black);
             }
@@ -3080,7 +3126,7 @@ int main()
         {
             if (timer[white] + 1 * 60 <= MAX_TIME * 60)
             {
-                timer[white] = timer[black] = timer[white] + 1 * 60;
+                timer[white] = timer[black] = keep_timer = timer[white] + 1 * 60;
                 fill_clocktime(white);
                 fill_clocktime(black);
             }
@@ -3089,7 +3135,7 @@ int main()
         {
             if (timer[white] - 1 * 60 >= MIN_TIME * 60)
             {
-                timer[white] = timer[black] = timer[white] - 1 * 60;
+                timer[white] = timer[black] = keep_timer = timer[white] - 1 * 60;
                 fill_clocktime(white);
                 fill_clocktime(black);
             }
@@ -3097,22 +3143,22 @@ int main()
         else if (IsKeyPressed(KEY_F) && game_state != Game_play)
         {
             if (plustimer[white] + 3 <= MAX_PLUS)
-                plustimer[white] = plustimer[black] = plustimer[white] + 3;
+                plustimer[white] = plustimer[black] = keep_plus_timer = plustimer[white] + 3;
         }
         else if (IsKeyPressed(KEY_G) && game_state != Game_play)
         {
             if (plustimer[white] - 3 >= MIN_PLUS)
-                plustimer[white] = plustimer[black] = plustimer[white] - 3;
+                plustimer[white] = plustimer[black] = keep_plus_timer = plustimer[white] - 3;
         }
         else if (IsKeyPressed(KEY_H) && game_state != Game_play)
         {
             if (plustimer[white] + 1 <= MAX_PLUS)
-                plustimer[white] = plustimer[black] = plustimer[white] + 1;
+                plustimer[white] = plustimer[black] = keep_plus_timer = plustimer[white] + 1;
         }
         else if (IsKeyPressed(KEY_I) && game_state != Game_play)
         {
             if (plustimer[white] - 1 >= MIN_PLUS)
-                plustimer[white] = plustimer[black] = plustimer[white] - 1;
+                plustimer[white] = plustimer[black] = keep_plus_timer = plustimer[white] - 1;
         }
         else if (IsKeyPressed(KEY_X) && game_state == Game_play)
         {
@@ -3188,10 +3234,8 @@ int main()
         }
     }
 
-#if (TTT)
     // free hash table memory on exit
     free(hash_table);
-#endif
 
     // unload the images
     UnloadTexture(img_empty);
