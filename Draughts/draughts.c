@@ -42,7 +42,7 @@
 #define MAX_PLUS 30
 #define MIN_PLUS 0
 
-#define title "Draughts in Raylib-C (C)2025 Peter Veenendaal; versie: 1.10"
+#define title "Draughts in Raylib-C (C)2025 Peter Veenendaal; versie: 1.20"
 
 // define min max macros
 #define Max(a, b) ((a) >= (b) ? (a) : (b))
