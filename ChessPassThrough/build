@@ -1,9 +1,9 @@
 Mac:
 
 Debug:
-eval cc cpt.c -g -O0 -Wall -framework IOKit -framework Cocoa -framework OpenGL $(pkg-config --libs --cflags raylib) -o debcpt
+eval cc cpt.c -g -O0 -Wall -std=c17 -framework IOKit -framework Cocoa -framework OpenGL $(pkg-config --libs --cflags raylib) -o debcpt
 Release:
-eval cc cpt.c -O2 -DNDEBUG -framework IOKit -framework Cocoa -framework OpenGL $(pkg-config --libs --cflags raylib) -o maccpt
+eval cc cpt.c -O2 -DNDEBUG -std=c17 -framework IOKit -framework Cocoa -framework OpenGL $(pkg-config --libs --cflags raylib) -o maccpt
 
 Windows: 
 

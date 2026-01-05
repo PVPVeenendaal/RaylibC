@@ -1,9 +1,9 @@
 Mac:
 
 Debug:
-eval cc checkers.c -g -O0 -Wall -framework IOKit -framework Cocoa -framework OpenGL $(pkg-config --libs --cflags raylib) -o debcheckers
+eval cc checkers.c -g -O0 -Wall -std=c17 -framework IOKit -framework Cocoa -framework OpenGL $(pkg-config --libs --cflags raylib) -o debcheckers
 Release:
-eval cc checkers.c -O2 -DNDEBUG -framework IOKit -framework Cocoa -framework OpenGL $(pkg-config --libs --cflags raylib) -o maccheckers
+eval cc checkers.c -O2 -DNDEBUG -std=c17 -framework IOKit -framework Cocoa -framework OpenGL $(pkg-config --libs --cflags raylib) -o maccheckers
 
 Windows: 
 
