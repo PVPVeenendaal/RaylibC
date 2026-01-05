@@ -7,17 +7,18 @@
 #include <sys/time.h>
 #include <pthread.h>
 
+// test position
 #define TEST 0
+// use engine or not
 #define USE_ENGINE 1
-#define SIZE 10
-#define INFINITY 50000
+// column / row size
+#define SIZE 10 
+// maximum search depth
 #define MAX_PLY 64
-
-#ifdef NDEBUG
-#define PRN_HASH_ENTRY 0
-#else
-#define PRN_HASH_ENTRY 0
-#endif
+// number of squares
+#define NUM_SQUARES 50
+// boundary
+#define BOUNDARY 51
 
 // define bitboard data type
 #define U64 unsigned long long
@@ -42,6 +43,7 @@
 #define MAX_PLUS 30
 #define MIN_PLUS 0
 
+// title
 #define title "Draughts in Raylib-C (C)2025 Peter Veenendaal; versie: 1.20"
 
 // define min max macros
@@ -150,7 +152,7 @@ typedef struct
 // 8  - 41  - 42  - 43  - 44  - 45
 // 9 46  - 47  - 48  - 49  - 50  -
 
-const int squares[10][10] = {
+const int squares[SIZE][SIZE] = {
     {0, 1, 0, 2, 0, 3, 0, 4, 0, 5},
     {6, 0, 7, 0, 8, 0, 9, 0, 10, 0},
     {0, 11, 0, 12, 0, 13, 0, 14, 0, 15},
@@ -163,8 +165,8 @@ const int squares[10][10] = {
     {46, 0, 47, 0, 48, 0, 49, 0, 50, 0},
 };
 
-const int rowcol[51][2] = {
-    {0, 0},
+const int rowcol[BOUNDARY][2] = {
+    {0, 0}, // 0
     {0, 1},
     {0, 3},
     {0, 5},
@@ -217,7 +219,7 @@ const int rowcol[51][2] = {
     {9, 8}, // 46..50
 };
 
-static char *squarenumber[51] =
+static char *squarenumber[BOUNDARY] =
     {"",
      "01", "02", "03", "04", "05",
      "06", "07", "08", "09", "10",
@@ -230,7 +232,7 @@ static char *squarenumber[51] =
      "41", "42", "43", "44", "45",
      "46", "47", "48", "49", "50"};
 
-const int square_rank[51] =
+const int square_rank[BOUNDARY] =
     {
         0,
         1, 1, 1, 1, 1,
@@ -244,7 +246,7 @@ const int square_rank[51] =
         9, 9, 9, 9, 9,
         10, 10, 10, 10, 10};
 
-const int dnw[51] =
+const int dnw[BOUNDARY] =
     {
         0, // 0 at start
         0,
@@ -299,7 +301,7 @@ const int dnw[51] =
         44, // 46 - 50
 };
 
-const int dne[51] =
+const int dne[BOUNDARY] =
     {
         0, // 0 at start
         0,
@@ -354,7 +356,7 @@ const int dne[51] =
         45, //  46 - 50
 };
 
-const int dsw[51] =
+const int dsw[BOUNDARY] =
     {
         0, // 0 at start
         6,
@@ -409,7 +411,7 @@ const int dsw[51] =
         0, // 46 - 50
 };
 
-const int dse[51] =
+const int dse[BOUNDARY] =
     {
         0, // 0 at start
         7,
@@ -615,7 +617,7 @@ int side;
 int fifty;
 
 // directions on the board for every square => 0 is outside the board
-U64 bb_dir[4][52];
+U64 bb_dir[4][BOUNDARY];
 
 // set occupancies
 void set_occupancies()
@@ -891,7 +893,7 @@ U64 generate_magic_number()
 \**********************************/
 
 // random piece keys [piece][square]
-U64 piece_keys[4][51];
+U64 piece_keys[4][BOUNDARY];
 
 // random side key
 U64 side_key;
@@ -906,7 +908,7 @@ void init_random_keys()
     for (int piece = wPawn; piece <= bKing; piece++)
     {
         // loop over board squares
-        for (int square = 1; square <= 50; square++)
+        for (int square = 1; square <= NUM_SQUARES; square++)
             // init random piece keys
             piece_keys[piece][square] = get_random_U64_number();
     }
@@ -1028,7 +1030,7 @@ void read_fen(char *fenstr)
             if (number[0] != '\0')
             {
                 int sq = atoi(number);
-                if (sq < 1 || sq > 50)
+                if (sq < 1 || sq > NUM_SQUARES)
                 {
                     wrong_fenstr(fenstr);
                     break;
@@ -1057,7 +1059,7 @@ void read_fen(char *fenstr)
                 break;
             }
             int sq = atoi(number);
-            if (sq < 1 || sq > 50)
+            if (sq < 1 || sq > NUM_SQUARES)
             {
                 wrong_fenstr(fenstr);
                 break;
@@ -1072,7 +1074,7 @@ void read_fen(char *fenstr)
     if (number[0] != '\0')
     {
         int sq = atoi(number);
-        if (sq < 1 || sq > 50)
+        if (sq < 1 || sq > NUM_SQUARES)
         {
             wrong_fenstr(fenstr);
             return;
@@ -1158,7 +1160,7 @@ void init_board()
     print_board();
 
     all_squares = 0ULL;
-    for (int i = 1; i <= 50; ++i)
+    for (int i = 1; i <= NUM_SQUARES; ++i)
         set_bit(all_squares, i);
 
     for (int i = wPawn; i <= bKing; ++i)
@@ -1212,7 +1214,7 @@ void init_bb_dir()
     memset(bb_dir, 0ULL, sizeof(bb_dir));
 
     for (int d = nw; d <= se; ++d)
-        for (int sq = 1; sq <= 50; ++sq)
+        for (int sq = 1; sq <= NUM_SQUARES; ++sq)
             switch (d)
             {
             case nw:
@@ -1550,32 +1552,33 @@ int make_move(U64 move, int move_type)
 \**********************************/
 
 // piece score table
-const int PST_P[51] =
-    {0,                    // 0 at start
-     0, 0, 0, 0, 0,        //  01 - 05   piece promotion line
-     45, 50, 55, 50, 45,   //  06 - 10
-     40, 45, 50, 45, 40,   //  11 - 15
-     35, 40, 45, 40, 35,   //  16 - 20
-     25, 30, 30, 25, 30,   //  21 - 25   small threshold to prevent to optimistic behaviour
-     25, 30, 35, 30, 25,   //  26 - 30
-     20, 15, 25, 20, 25,   //  31 - 35
-     20, 15, 25, 20, 15,   //  36 - 40
-     10, 15, 25, 20, 15,   //  41 - 45
-     5, 10, 15, 10, 5};  //  46 - 50
+const int PST_P[BOUNDARY] =
+    {0,                   // 0 at start
+     0, 0, 0, 0, 0,       //  01 - 05   piece promotion line
+     45, 50, 55, 50, 45,  //  06 - 10
+     40, 45, 50, 45, 40,  //  11 - 15
+     35, 40, 45, 40, 35,  //  16 - 20
+     25, 30, 30, 25, 30,  //  21 - 25  
+     25, 30, 35, 30, 25,  //  26 - 30
+     20, 15, 25, 20, 25,  //  31 - 35
+     20, 15, 25, 20, 15,  //  36 - 40
+     10, 15, 25, 20, 15,  //  41 - 45
+     5, 10, 15, 10, 5};   //  46 - 50
 
-const int PST_K[51] =
-    {0,                        // 0 at start
-     050, 050, 050, 050, 050,  //  01 - 05
-     050, 050, 050, 050, 050,  //  06 - 10
-     050, 050, 050, 050, 050,  //  11 - 15
-     050, 050, 050, 050, 050,  //  16 - 20
-     050, 050, 050, 050, 050,  //  21 - 25
-     050, 050, 050, 050, 050,  //  26 - 30
-     050, 050, 050, 050, 050,  //  31 - 35
-     050, 050, 050, 050, 050,  //  36 - 40
-     050, 050, 050, 050, 050,  //  41 - 45
-     050, 050, 050, 050, 050}; //  46 - 50
+const int PST_K[BOUNDARY] =
+    {0,                   // 0 at start
+     50, 50, 50, 50, 50,  //  01 - 05
+     50, 50, 50, 50, 50,  //  06 - 10
+     50, 50, 50, 50, 50,  //  11 - 15
+     50, 50, 50, 50, 50,  //  16 - 20
+     50, 50, 50, 50, 50,  //  21 - 25
+     50, 50, 50, 50, 50,  //  26 - 30
+     50, 50, 50, 50, 50,  //  31 - 35
+     50, 50, 50, 50, 50,  //  36 - 40
+     50, 50, 50, 50, 50,  //  41 - 45
+     50, 50, 50, 50, 50}; //  46 - 50
 
+// check for vulnerebility
 static inline int count_open_squares(int square)
 {
     U64 empty = ~occupancies[both] & all_squares;
@@ -1597,7 +1600,19 @@ static inline int count_open_squares(int square)
 static inline int evaluate()
 {
     int score = 0;
+    int white_rank = -99;
+    int black_rank = -99;
+    int white_has_king = 0;
+    int black_has_king = 0;
     U64 bb;
+
+    if (occupancies[black] != 0ULL)
+    {
+        int sq = get_ls1b_index(occupancies[black]);
+        black_rank = square_rank[sq];
+        if (bitboards[bKing])
+            black_has_king = 1;
+    }
 
     // white
     bb = occupancies[white];
@@ -1609,9 +1624,19 @@ static inline int evaluate()
         {
             int sq = get_ls1b_index(bb);
             if (get_bit(bitboards[wPawn], sq))
+            {
                 score += 1000 + PST_P[sq] - count_open_squares(sq);
+				// passed pawn
+                if (square_rank[sq] < black_rank)
+                    score += (black_has_king) ? 10 : 50;  
+                if (square_rank[sq] > white_rank)
+                    white_rank = square_rank[sq];          
+            }
             else if (get_bit(bitboards[wKing], sq))
+            {
                 score += 3000 + PST_K[sq];
+                white_has_king = 1;
+        	}
             pop_bit(bb, sq);
         }
     }
@@ -1625,9 +1650,14 @@ static inline int evaluate()
         {
             int sq = get_ls1b_index(bb);
             if (get_bit(bitboards[bPawn], sq))
-                score -= (1000 + PST_P[51 - sq] - count_open_squares(sq));
+            {
+                score -= (1000 + PST_P[BOUNDARY - sq] - count_open_squares(sq));
+                // passed pawn
+                if (square_rank[sq] > white_rank)
+                    score -= (white_has_king) ? 10 : 50;
+            }
             else if (get_bit(bitboards[bKing], sq))
-                score -= (3000 + PST_K[51 - sq]);
+                score -= (3000 + PST_K[BOUNDARY - sq]);
             pop_bit(bb, sq);
         }
     }
@@ -2038,9 +2068,6 @@ static inline int negamax(int alpha, int beta, int depth)
 
     if (fifty >= 100)
     {
-#ifndef NDEBUG // print only in debug mode
-        printf("Draw score");
-#endif
         // return draw score
         return 0;
     }
@@ -2053,12 +2080,7 @@ static inline int negamax(int alpha, int beta, int depth)
     if (ply && (score = read_hash_entry(alpha, beta, depth)) != no_hash_entry && pv_node == 0)
     // if the move has already been searched (hence has a value)
     // we just return the score for this move without searching it
-    {
-#if (PRN_HASH_ENTRY)
-        printf("*");
-#endif
         return score;
-    }
 
     // every stop thinking flag nodes
     if ((nodes & 2047) == 0)
@@ -2112,11 +2134,6 @@ static inline int negamax(int alpha, int beta, int depth)
         // make sure to make only legal moves
         if (make_move(move_list->moves[count], all_moves) == 0)
         {
-#ifndef NDEBUG // print only in debug mode
-            print_move(move_list->moves[count]);
-            printf("Is not valid");
-#endif
-
             // decrement ply
             --ply;
 
@@ -2224,8 +2241,8 @@ static inline int search_position(int depth)
     memset(pv_length, 0, sizeof(pv_length));
 
     // define initial alpha beta bounds
-    int alpha = -INFINITY;
-    int beta = INFINITY;
+    int alpha = -infinity;
+    int beta = infinity;
 
     // iterative deepening
     for (int current_depth = 1; current_depth <= depth; current_depth++)
@@ -2249,8 +2266,8 @@ static inline int search_position(int depth)
         // we fell outside the window, so try again with a full-width window (and the same depth)
         if ((score <= alpha) || (score >= beta))
         {
-            alpha = -INFINITY;
-            beta = INFINITY;
+            alpha = -infinity;
+            beta = infinity;
             continue;
         }
 
@@ -2340,12 +2357,12 @@ U64 move_options = 0ULL;
 // quick check which of the squares the selected piece can move to
 // when the human player is to move
 // square has a blue border
-U64 square_options[51];
+U64 square_options[BOUNDARY];
 
 // quick check which of the pieces can captured
 // when the human player is to move
 // square has a red border
-U64 cap_options[51];
+U64 cap_options[BOUNDARY];
 
 // square from the selected piece
 // when the human player is to move
@@ -2530,7 +2547,7 @@ void process_mouseclick(const int x, const int y, moves_t *movelist)
     int sqrx = get_sqrx(x, BOARD_COL);
     int sqry = get_sqry(y, BOARD_ROW);
     int sqn = 0;
-    for (int i = 1; i <= 50; ++i)
+    for (int i = 1; i <= NUM_SQUARES; ++i)
     {
         if (rowcol[i][0] == sqry && rowcol[i][1] == sqrx)
         {
@@ -2539,7 +2556,7 @@ void process_mouseclick(const int x, const int y, moves_t *movelist)
         }
     }
     // select square on the board
-    int sqr = reversed ? 51 - sqn : sqn;
+    int sqr = reversed ? BOUNDARY - sqn : sqn;
     if (human_player == gui_side || human_player == both)
     {
         if (selected_piece == 99)
@@ -2795,7 +2812,7 @@ int main()
                         RAYWHITE);
                     if (game_state == Game_play && (human_player == gui_side || human_player == both))
                     {
-                        int sq = (reversed) ? 51 - sqr : sqr;
+                        int sq = (reversed) ? BOUNDARY - sqr : sqr;
                         U64 pbit = selected_piece == 99 ? get_bit(move_options, sq) : selected_piece == sq ? 1ULL
                                                                                                            : 0ULL;
                         U64 sbit = selected_piece == 99 ? 0ULL : get_bit(square_options[selected_piece], sq);
@@ -2833,7 +2850,7 @@ int main()
                     }
                 }
         // draw coordinates
-        int sq = reversed ? 51 : 0;
+        int sq = reversed ? BOUNDARY : 0;
         for (int row = 0; row < SIZE; ++row)
             for (int col = 0; col < SIZE; ++col)
             {
@@ -3166,9 +3183,10 @@ int main()
             game_winner = side ^= 1;
             game_end_reason = (game_winner == black) ? wResign : bResign;
         }
-        else if (IsKeyPressed(KEY_ENTER) && game_state == Game_play)
+        else if (IsKeyPressed(KEY_ENTER) && game_state == Game_play &&
+        	(human_player == gui_side || human_player == both))
         {
-            if (gui_movelist->caplength > 0)
+            if (gui_movelist->counter == 1)
             {
                 U64 move = gui_movelist->moves[0];
                 process_move(get_move_source(move), get_move_target(move), gui_movelist);

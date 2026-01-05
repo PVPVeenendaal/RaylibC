@@ -7,11 +7,18 @@
 #include <sys/time.h>
 #include <pthread.h>
 
+// test position
 #define TEST 0
+// use engine or not
 #define USE_ENGINE 1
+// column / row size
 #define SIZE 8
-#define INFINITY 50000
+// maximum search depth
 #define MAX_PLY 64
+// number of squares
+#define NUM_SQUARES 32
+// boundary
+#define BOUNDARY 33
 
 // define bitboard data type
 #define U64 unsigned long long
@@ -37,11 +44,22 @@
 #define MIN_PLUS 0
 
 // title
-#define title "Checkers in Raylib-C (C)2025 Peter Veenendaal; versie: 1.10"
+#define title "Checkers in Raylib-C (C)2025 Peter Veenendaal; versie: 1.20"
 
 // define min max macros
 #define Max(a, b) ((a) >= (b) ? (a) : (b))
 #define Min(a, b) ((a) <= (b) ? (a) : (b))
+
+// search values
+#define infinity 50000
+
+// no hash entry found constant
+#define no_hash_entry 100000
+
+// transposition table hash flags
+#define hash_flag_exact 0
+#define hash_flag_alpha 1
+#define hash_flag_beta 2
 
 // colors
 enum
@@ -66,8 +84,8 @@ enum
 {
     nw,
     ne,
-    se,
     sw,
+    se,
 };
 
 // move_kind
@@ -85,32 +103,54 @@ enum
     Game_stop
 };
 
-// squares
-//    0  1  2  3  4  5  6  7
-// 0  -  1  2  3  4  5  6  7
-// 1  8  9 10 11 12 13 14 15
-// 2 16 17 18 19 20 21 22 23
-// 3 24 25 26 27 28 29 30 31
-// 4 32  -  -  -  -  -  -  -
-// 5  -  -  -  -  -  -  -  -
-// 6  -  -  -  -  -  -  -  -
-// 7  -  -  -  -  -  -  -  -
+// game_end
+enum
+{
+    nop,
+    bTime,   // white wins because black has no more time left
+    wTime,   // black wins because white has no more time left
+    bMove,   // white wins because black has no moves to make
+    wMove,   // black wins because white has no moves to make
+    bResign, // white wins because black resigned the game
+    wResign, // black wins because white resigned the game
+    draw50,  // draw by the 50 moves rule
+    draw3,   // draw by repetition
+};
 
 typedef struct
 {
-    char sqf;
-    char sqt;
-    U64 cap;
-} move_t;
-
-typedef struct
-{
-    move_t moves[256];
+    U64 moves[256];
     int counter;
     int caplength;
 } moves_t;
 
-const int draw_squares[8][8] = {
+typedef struct
+{
+    U64 hash_keys[512];
+    int gamelength;
+} game_t;
+
+// transposition table data structure
+typedef struct
+{
+    U64 hash_key; // "almost" unique chess position identifier
+    int depth;    // current search depth
+    int flag;     // flag the type of node (fail-low/fail-high/PV)
+    int score;    // score (alpha/beta/PV)
+} tt;             // transposition table (TT aka hash table)
+
+// squares
+//    0  1  2  3  4  5  6  7  
+// 0  -  1  -  2  -  3  -  4  
+// 1  5  -  6  -  7  -  8  - 
+// 2  -  9  - 10  - 11  - 12  
+// 3 13  - 14  - 15  - 16  - 
+// 4  - 17  - 18  - 19  - 20 
+// 5 21  - 22  - 23  - 24  - 
+// 6  - 35  - 26  - 27  - 28 
+// 7 29  - 30  - 31  - 32  - 
+
+const int squares[SIZE][SIZE] = {
     {0, 1, 0, 2, 0, 3, 0, 4},
     {5, 0, 6, 0, 7, 0, 8, 0},
     {0, 9, 0, 10, 0, 11, 0, 12},
@@ -121,18 +161,7 @@ const int draw_squares[8][8] = {
     {29, 0, 30, 0, 31, 0, 32, 0},
 };
 
-const int bb_squares[64] = {
-    0, 1, 0, 2, 0, 3, 0, 4,
-    5, 0, 6, 0, 7, 0, 8, 0,
-    0, 9, 0, 10, 0, 11, 0, 12,
-    13, 0, 14, 0, 15, 0, 16, 0,
-    0, 17, 0, 18, 0, 19, 0, 20,
-    21, 0, 22, 0, 23, 0, 24, 0,
-    0, 25, 0, 26, 0, 27, 0, 28,
-    29, 0, 30, 0, 31, 0, 32, 0,
-};
-
-const int rowcol[33][2] = {
+const int rowcol[BOUNDARY][2] = {
     {0, 0}, // 0
     {0, 1},
     {0, 3},
@@ -168,17 +197,7 @@ const int rowcol[33][2] = {
     {7, 6}, // 29..32
 };
 
-static char *drawnumber[64] =
-    {"  ", "01", "  ", "02", "  ", "03", "  ", "04",
-     "05", "  ", "06", "  ", "07", "  ", "08", "  ",
-     "  ", "09", "  ", "10", "  ", "11", "  ", "12",
-     "13", "  ", "14", "  ", "15", "  ", "16", "  ",
-     "  ", "17", "  ", "18", "  ", "19", "  ", "20",
-     "21", "  ", "22", "  ", "23", "  ", "24", "  ",
-     "  ", "25", "  ", "26", "  ", "27", "  ", "28",
-     "29", "  ", "30", "  ", "31", "  ", "32", "  "};
-
-static char *squarenumber[33] =
+static char *squarenumber[BOUNDARY] =
     {"  ",
      "01", "02", "03", "04",
      "05", "06", "07", "08",
@@ -189,59 +208,34 @@ static char *squarenumber[33] =
      "25", "26", "27", "28",
      "29", "30", "31", "32"};
 
-const int square_rank[33] =
+const int square_rank[BOUNDARY] =
     {
         0,
-        1,
-        1,
-        1,
-        1,
-        2,
-        2,
-        2,
-        2,
-        3,
-        3,
-        3,
-        3,
-        4,
-        4,
-        4,
-        4,
-        5,
-        5,
-        5,
-        5,
-        6,
-        6,
-        6,
-        6,
-        7,
-        7,
-        7,
-        7,
-        8,
-        8,
-        8,
-        8,
+        1, 1, 1, 1,
+        2, 2, 2, 2,
+        3, 3, 3, 3,
+        4, 4, 4, 4,
+        5, 5, 5, 5,
+        6, 6, 6, 6,
+        7, 7, 7, 7,
+        8, 8, 8, 8
 };
 
-const int dir[4][33] = {
+const int dnw[BOUNDARY] = 
     {
-        // nw
-        0, // 0
+        0, // 0 at start
         0,
         0,
         0,
-        0, // 1..4
+        0, // 01..04
         0,
         1,
         2,
-        3, // 5..8
+        3, // 05..08
         5,
         6,
         7,
-        8, // 9..12
+        8, // 09..12
         0,
         9,
         10,
@@ -261,23 +255,24 @@ const int dir[4][33] = {
         0,
         25,
         26,
-        27, // 29..32
-    },
+        27 // 29..32
+};
+
+const int dne[BOUNDARY] =
     {
-        // ne
-        0, // 0
+        0, // 0 at start
         0,
         0,
         0,
-        0, // 1..4
+        0, // 01..04
         1,
         2,
         3,
-        4, // 5..8
+        4, // 05..08
         6,
         7,
         8,
-        0, // 9..12
+        0, // 09..12
         9,
         10,
         11,
@@ -298,58 +293,23 @@ const int dir[4][33] = {
         26,
         27,
         28, // 29..32
-    },
-    {
-        // se
-        0, // 0
-        6,
-        7,
-        8,
-        0, // 1..4
-        9,
-        10,
-        11,
-        12, // 5..8
-        14,
-        15,
-        16,
-        0, // 9..12
-        17,
-        18,
-        19,
-        20, // 13..16
-        22,
-        23,
-        24,
-        0, // 17..20
-        25,
-        26,
-        27,
-        28, // 21..24
-        30,
-        31,
-        32,
-        0, // 25..28
-        0,
-        0,
-        0,
-        0, // 29..32
-    },
-    {
-        // sw
-        0, // 0
+};
+
+const int dsw[BOUNDARY] =
+{
+        0, // 0 at start
         5,
         6,
         7,
-        8, // 1..4
+        8, // 01..04
         0,
         9,
         10,
-        11, // 5..8
+        11, // 05..08
         13,
         14,
         15,
-        16, // 9..12
+        16, // 09..12
         0,
         17,
         18,
@@ -370,13 +330,49 @@ const int dir[4][33] = {
         0,
         0,
         0, // 29..32
-    },
+};   
+
+const int dse[BOUNDARY] =
+    {
+        0, // 0 at start
+        6,
+        7,
+        8,
+        0, // 01..04
+        9,
+        10,
+        11,
+        12, // 05..08
+        14,
+        15,
+        16,
+        0, // 09..12
+        17,
+        18,
+        19,
+        20, // 13..16
+        22,
+        23,
+        24,
+        0, // 17..20
+        25,
+        26,
+        27,
+        28, // 21..24
+        30,
+        31,
+        32,
+        0, // 25..28
+        0,
+        0,
+        0,
+        0, // 29..32
 };
 
 /**********************************\
  ==================================
 
-    Checker board
+    Checkers board
 
  ==================================
 \**********************************/
@@ -511,11 +507,20 @@ U64 occupancies[3];
 // board filled with all active squares
 U64 all_squares = 0ULL;
 
+// "almost" unique position identifier aka hash key or position key
+U64 hash_key;
+
+// table with hashkeys for every position 1 to check for repetition
+game_t game_keys[1];
+
 // side to move
 int side;
 
-// directions on the board
-U64 bb_dir[4][33];
+// fifty moves counter
+int fifty;
+
+// directions on the board for every square => 0 is outside the board
+U64 bb_dir[4][BOUNDARY];
 
 // set occupancies
 void set_occupancies()
@@ -526,7 +531,7 @@ void set_occupancies()
 }
 
 // Print the board
-void printBoard()
+void print_board()
 {
 #ifndef NDEBUG // print only in debug mode
     printf("   ");
@@ -539,7 +544,7 @@ void printBoard()
         printf(" %d ", r);
         for (int c = 0; c < SIZE; c++)
         {
-            int sq = draw_squares[r][c];
+            int sq = squares[r][c];
             if (sq == 0)
                 printf("   ");
             else if (get_bit(bitboards[wPawn], sq))
@@ -555,22 +560,35 @@ void printBoard()
         }
         printf("\n");
     }
+
+    // print side to move
+    printf("     Side:     %s\n", !side ? "white" : "black");
+
+    // fifty move rule counter
+    printf("     50 moves rule: %d\n", (fifty / 2));
+
+    // print hash key
+    printf("     Hash key:  %llu\n", hash_key);
 #endif
 }
 
 // preserve board state
-#define copy_board()                            \
-    U64 bitboards_copy[4], occupancies_copy[3]; \
-    int side_copy;                              \
-    memcpy(bitboards_copy, bitboards, 32);      \
-    memcpy(occupancies_copy, occupancies, 24);  \
+#define copy_board()                                           \
+    U64 bitboards_copy[4], occupancies_copy[3], hash_key_copy; \
+    int side_copy, fifty_copy;                                 \
+    memcpy(bitboards_copy, bitboards, 32);                     \
+    memcpy(occupancies_copy, occupancies, 24);                 \
+    hash_key_copy = hash_key;                                  \
+    fifty_copy = fifty;                                        \
     side_copy = side;
 
 // restore board state
 #define take_back()                            \
     memcpy(bitboards, bitboards_copy, 32);     \
     memcpy(occupancies, occupancies_copy, 24); \
-    side = side_copy;
+    hash_key = hash_key_copy;                  \
+    side = side_copy;                          \
+    fifty = fifty_copy;
 
 /**********************************\
  ==================================
@@ -721,6 +739,127 @@ void print_bitboard(U64 bitboard)
 /**********************************\
  ==================================
 
+           Random numbers
+
+ ==================================
+\**********************************/
+
+// pseudo random number state
+unsigned int random_state = 1804289383;
+
+// generate 32-bit pseudo legal numbers
+unsigned int get_random_U32_number()
+{
+    // get current state
+    unsigned int number = random_state;
+
+    // XOR shift algorithm
+    number ^= number << 13;
+    number ^= number >> 17;
+    number ^= number << 5;
+
+    // update random number state
+    random_state = number;
+
+    // return random number
+    return number;
+}
+
+// generate 64-bit pseudo legal numbers
+U64 get_random_U64_number()
+{
+    // define 4 random numbers
+    U64 n1, n2, n3, n4;
+
+    // init random numbers slicing 16 bits from MS1B side
+    n1 = (U64)(get_random_U32_number()) & 0xFFFF;
+    n2 = (U64)(get_random_U32_number()) & 0xFFFF;
+    n3 = (U64)(get_random_U32_number()) & 0xFFFF;
+    n4 = (U64)(get_random_U32_number()) & 0xFFFF;
+
+    // return random number
+    return n1 | (n2 << 16) | (n3 << 32) | (n4 << 48);
+}
+
+// generate magic number candidate
+U64 generate_magic_number()
+{
+    return get_random_U64_number() & get_random_U64_number() & get_random_U64_number();
+}
+
+/**********************************\
+ ==================================
+
+            Zobrist keys
+
+ ==================================
+\**********************************/
+
+// random piece keys [piece][square]
+U64 piece_keys[4][BOUNDARY];
+
+// random side key
+U64 side_key;
+
+// init random hash keys
+void init_random_keys()
+{
+    // update pseudo random number state
+    random_state = 1804289383;
+
+    // loop over piece codes
+    for (int piece = wPawn; piece <= bKing; piece++)
+    {
+        // loop over board squares
+        for (int square = 1; square <= NUM_SQUARES; square++)
+            // init random piece keys
+            piece_keys[piece][square] = get_random_U64_number();
+    }
+
+    // init random side key
+    side_key = get_random_U64_number();
+}
+
+// generate "almost" unique position ID aka hash key from scratch
+U64 generate_hash_key()
+{
+    // final hash key
+    U64 final_key = 0ULL;
+
+    // temp piece bitboard copy
+    U64 bitboard;
+
+    // loop over piece bitboards
+    for (int piece = wPawn; piece <= bKing; piece++)
+    {
+        // init piece bitboard copy
+        bitboard = bitboards[piece];
+
+        // loop over the pieces within a bitboard
+        while (bitboard)
+        {
+            // init square occupied by the piece
+            int square = get_ls1b_index(bitboard);
+
+            // hash piece
+            final_key ^= piece_keys[piece][square];
+
+            // pop LS1B
+            pop_bit(bitboard, square);
+        }
+    }
+
+    // hash the side only if black is to move
+    if (side == black)
+        final_key ^= side_key;
+
+    // return generated hash key
+    return final_key;
+}
+
+/**********************************\
+ ==================================
+
     Fen
 
  ==================================
@@ -794,7 +933,7 @@ void read_fen(char *fenstr)
             if (number[0] != '\0')
             {
                 int sq = atoi(number);
-                if (sq < 1 || sq > 32)
+                if (sq < 1 || sq > NUM_SQUARES)
                 {
                     wrong_fenstr(fenstr);
                     break;
@@ -823,7 +962,7 @@ void read_fen(char *fenstr)
                 break;
             }
             int sq = atoi(number);
-            if (sq < 1 || sq > 32)
+            if (sq < 1 || sq > NUM_SQUARES)
             {
                 wrong_fenstr(fenstr);
                 break;
@@ -838,7 +977,7 @@ void read_fen(char *fenstr)
     if (number[0] != '\0')
     {
         int sq = atoi(number);
-        if (sq < 1 || sq > 32)
+        if (sq < 1 || sq > NUM_SQUARES)
         {
             wrong_fenstr(fenstr);
             return;
@@ -850,6 +989,7 @@ void read_fen(char *fenstr)
     }
 
     set_occupancies();
+    hash_key = generate_hash_key();
 }
 
 // write a fenstr form the current position
@@ -914,19 +1054,26 @@ void write_fen()
 // Initialize the board with starting positions
 void init_board()
 {
+	// initialize random keys
+    init_random_keys();
+
+	// read fen with start position
     read_fen("B:W21,22,23,24,25,26,27,28,29,30,31,32:B1,2,3,4,5,6,7,8,9,10,11,12");
+	
+	print_board();
 
     all_squares = 0ULL;
-    for (int i = 1; i <= 32; ++i)
-    {
+    for (int i = 1; i <= NUM_SQUARES; ++i)
         set_bit(all_squares, i);
-    }
 
-    for (int i = 0; i < 4; ++i)
+    for (int i = wPawn; i <= bKing; ++i)
         print_bitboard(bitboards[i]);
     for (int i = 0; i < 3; ++i)
         print_bitboard(occupancies[i]);
     print_bitboard(all_squares);
+
+    // reset 50 moves counter
+    fifty = 0;
 }
 
 /**********************************\
@@ -937,17 +1084,67 @@ void init_board()
  ==================================
 \**********************************/
 
+// encode move
+#define encode_move(source, target, capture) \
+    ((U64)(capture) |                               \
+     ((U64)(source) << 52) |                        \
+     ((U64)(target) << 58))
+
+// extract source square
+#define get_move_source(move) (((move) >> 52) & 63)
+
+// extract target square
+#define get_move_target(move) (((move) >> 58) & 63)
+
+// extract capture
+#define get_move_capture(move) (((move) & all_squares))
+
+// extraxt piece moved
+int get_move_piece(U64 move)
+{
+    int sqf = get_move_source(move);
+    for (int p = wPawn; p <= bKing; ++p)
+    {
+        if get_bit(bitboards[p], sqf)
+            return p;
+    }
+    return no_piece;
+}
+
 // initialize bitboards dir
 void init_bb_dir()
 {
     memset(bb_dir, 0ULL, sizeof(bb_dir));
 
-    for (int d = nw; d <= sw; ++d)
-        for (int sq = 0; sq < 33; ++sq)
-            if (dir[d][sq] == 0)
-                continue;
-            else
-                set_bit(bb_dir[d][sq], dir[d][sq]);
+    for (int d = nw; d <= se; ++d)
+        for (int sq = 1; sq <= NUM_SQUARES; ++sq)
+            switch (d)
+            {
+            case nw:
+                if (dnw[sq] == 0)
+                    continue;
+                else
+                    set_bit(bb_dir[d][sq], dnw[sq]);
+                break;
+            case ne:
+                if (dne[sq] == 0)
+                    continue;
+                else
+                    set_bit(bb_dir[d][sq], dne[sq]);
+                break;
+            case sw:
+                if (dsw[sq] == 0)
+                    continue;
+                else
+                    set_bit(bb_dir[d][sq], dsw[sq]);
+                break;
+            case se:
+                if (dse[sq] == 0)
+                    continue;
+                else
+                    set_bit(bb_dir[d][sq], dse[sq]);
+                break;
+            }
 }
 
 // generate next captures
@@ -960,55 +1157,51 @@ void generate_next_captures(moves_t *move_list)
 
     U64 capture = side == white ? occupancies[black] : occupancies[white];
     U64 empty = ~occupancies[both] & all_squares;
-    int dirP1 = side == white ? nw : sw;
-    int dirP2 = side == white ? ne : se;
-    int sqf, sqt, sqo, piece;
+    int old_sqf, old_sqt, sqf, sqt, sqo, piece;
+    int dirP1, dirP2;
+
+    U64 b, e, old_cap;
 
     for (int i = 0; i < old_list->counter; ++i)
     {
-        move_t m = old_list->moves[i];
-        if (get_bit(bitboards[wPawn], m.sqf))
-            piece = wPawn;
-        else if (get_bit(bitboards[bPawn], m.sqf))
-            piece = bPawn;
-        else if (get_bit(bitboards[wKing], m.sqf))
-            piece = wKing;
-        else if (get_bit(bitboards[bKing], m.sqf))
-            piece = bKing;
-        sqf = m.sqt;
+        U64 m = old_list->moves[i];
+        old_sqf = get_move_source(m);
+        old_sqt = get_move_target(m);
+        old_cap = get_move_capture(m);
+        piece = get_move_piece(m);
+        sqf = old_sqt;
         if (piece == wPawn || piece == bPawn)
         {
-            dirP1 = side == white ? nw : se;
-            dirP2 = side == white ? ne : sw;
+            dirP1 = side == white ? nw : sw;
+            dirP2 = side == white ? ne : se;
         }
         else
         {
             dirP1 = nw;
-            dirP2 = sw;
+            dirP2 = se;
         }
         for (int d = dirP1; d <= dirP2; ++d)
         {
-            U64 b = capture & bb_dir[d][sqf];
+            b = capture & bb_dir[d][sqf];
             if (b)
             {
                 sqo = get_ls1b_index(b);
-                if (get_bit(m.cap, sqo)) // can't jump over a piece a second time
+                if (get_bit(old_cap, sqo)) // can't jump over a piece a second time
                     continue;
-                U64 e = empty & bb_dir[d][sqo];
+                e = empty & bb_dir[d][sqo];
                 if (e) // next capture found
                 {
                     sqt = get_ls1b_index(e);
-                    U64 newcap = m.cap;
+                    U64 newcap = old_cap;
                     set_bit(newcap, sqo);
-                    move_list->moves[move_list->counter].sqf = m.sqf;
-                    move_list->moves[move_list->counter].sqt = sqt;
-                    move_list->moves[move_list->counter].cap = newcap;
+                    move_list->moves[move_list->counter] = encode_move(old_sqf, sqt, newcap);
                     ++move_list->counter;
                     move_list->caplength = old_list->caplength + 1;
                 }
             }
         }
     }
+
     if (move_list->counter > 0)
         generate_next_captures(move_list);
     else
@@ -1024,83 +1217,81 @@ void generate_moves(moves_t *movelist)
     U64 empty = ~occupancies[both] & all_squares;
     U64 pawns = side == white ? bitboards[wPawn] : bitboards[bPawn];
     U64 kings = side == white ? bitboards[wKing] : bitboards[bKing];
-    int dirP1 = side == white ? nw : se;
-    int dirP2 = side == white ? ne : sw;
+    int dirP1 = side == white ? nw : sw;
+    int dirP2 = side == white ? ne : se;
     int sqf, sqt, sqo;
+
+    U64 b, e, cap;
 
     while (pawns)
     {
         sqf = get_ls1b_index(pawns);
         for (int d = dirP1; d <= dirP2; ++d)
         {
-            U64 b = capture & bb_dir[d][sqf];
+            b = capture & bb_dir[d][sqf];
             if (b)
             {
                 sqo = get_ls1b_index(b);
-                U64 e = empty & bb_dir[d][sqo];
+                e = empty & bb_dir[d][sqo];
                 if (e) // capture found
                 {
                     sqt = get_ls1b_index(e);
+                    cap = 0ULL;
+                    set_bit(cap, sqo);
                     if (movelist->caplength == 0)
                         movelist->counter = 0;
-                    movelist->moves[movelist->counter].sqf = sqf;
-                    movelist->moves[movelist->counter].sqt = sqt;
-                    set_bit(movelist->moves[movelist->counter].cap, sqo);
+                    movelist->moves[movelist->counter] = encode_move(sqf, sqt, cap);
                     ++movelist->counter;
                     movelist->caplength = 1;
                 }
             }
             else
             {
-                U64 e = empty & bb_dir[d][sqf];
+                e = empty & bb_dir[d][sqf];
                 if (e && movelist->caplength == 0)
                 {
                     sqt = get_ls1b_index(e);
-                    movelist->moves[movelist->counter].sqf = sqf;
-                    movelist->moves[movelist->counter].sqt = sqt;
+                    movelist->moves[movelist->counter] = encode_move(sqf, sqt, 0ULL);
                     ++movelist->counter;
                 }
             }
         }
-
         pop_bit(pawns, sqf);
     }
 
     while (kings)
     {
         sqf = get_ls1b_index(kings);
-        for (int d = nw; d <= sw; ++d)
+        for (int d = nw; d <= se; ++d)
         {
-            U64 b = capture & bb_dir[d][sqf];
+            b = capture & bb_dir[d][sqf];
             if (b)
             {
                 sqo = get_ls1b_index(b);
-                U64 e = empty & bb_dir[d][sqo];
+                e = empty & bb_dir[d][sqo];
                 if (e) // capture found
                 {
                     sqt = get_ls1b_index(e);
+                    cap = 0ULL;
+                    set_bit(cap, sqo);
                     if (movelist->caplength == 0)
                         movelist->counter = 0;
-                    movelist->moves[movelist->counter].sqf = sqf;
-                    movelist->moves[movelist->counter].sqt = sqt;
-                    set_bit(movelist->moves[movelist->counter].cap, sqo);
+                    movelist->moves[movelist->counter] = encode_move(sqf, sqt, cap);
                     ++movelist->counter;
                     movelist->caplength = 1;
                 }
             }
             else
             {
-                U64 e = empty & bb_dir[d][sqf];
+                e = empty & bb_dir[d][sqf];
                 if (e && movelist->caplength == 0)
                 {
                     sqt = get_ls1b_index(e);
-                    movelist->moves[movelist->counter].sqf = sqf;
-                    movelist->moves[movelist->counter].sqt = sqt;
+                    movelist->moves[movelist->counter] = encode_move(sqf, sqt, 0ULL);
                     ++movelist->counter;
                 }
             }
         }
-
         pop_bit(kings, sqf);
     }
 
@@ -1109,11 +1300,11 @@ void generate_moves(moves_t *movelist)
 }
 
 // print_move
-void print_move(move_t mov)
+void print_move(U64 mov)
 {
-    int sqf = mov.sqf;
-    int sqt = mov.sqt;
-    U64 cap = mov.cap;
+    int sqf = get_move_source(mov);
+    int sqt = get_move_target(mov);
+    U64 cap = get_move_capture(mov);
 
     char *mvp = (cap) ? " x " : " - ";
 #ifndef NDEBUG // print only in debug mode
@@ -1133,33 +1324,34 @@ void print_movelist(moves_t *movelist)
 }
 
 // make a move
-int make_move(move_t move, int move_type)
+int make_move(U64 move, int move_type)
 {
-    int sqf = move.sqf;
-    int sqt = move.sqt;
+    int sqf = get_move_source(move);
+    int sqt = get_move_target(move);
+    U64 cap = get_move_capture(move);
     int piece = no_piece;
     int xside = no_piece;
     int result = 1;
 
     if (move_type == all_moves)
     {
-        if (get_bit(bitboards[wPawn], sqf))
-            piece = wPawn;
-        else if (get_bit(bitboards[bPawn], sqf))
-            piece = bPawn;
-        else if (get_bit(bitboards[wKing], sqf))
-            piece = wKing;
-        else if (get_bit(bitboards[bKing], sqf))
-            piece = bKing;
-
-        // move
+        // get the piece from the move to make
+        piece = get_move_piece(move);
+        
+        // move from de piece
         pop_bit(bitboards[piece], sqf);
         set_bit(bitboards[piece], sqt);
+        // hash piece
+        hash_key ^= piece_keys[piece][sqf]; // remove piece from source square in hash key
+        hash_key ^= piece_keys[piece][sqt]; // set piece to the target square in hash key
+
+        ++fifty;
 
         // capture
-        if (move.cap > 0ULL)
+        if (cap > 0ULL)
         {
-            U64 c = move.cap;
+            fifty = 0; // reset fifty moves counter
+            U64 c = cap;
             while (c)
             {
                 int sqo = get_ls1b_index(c);
@@ -1173,6 +1365,8 @@ int make_move(move_t move, int move_type)
                     xside = bKing;
 
                 pop_bit(bitboards[xside], sqo);
+                // remove the piece from hash key
+                hash_key ^= piece_keys[xside][sqo];
                 pop_bit(c, sqo);
             }
         }
@@ -1180,21 +1374,42 @@ int make_move(move_t move, int move_type)
         // Promotion
         if (piece == bPawn && square_rank[sqt] == SIZE)
         {
+            // remove pawn from the bitboard
             pop_bit(bitboards[bPawn], sqt);
+            // remove pawn from the hash key
+            hash_key ^= piece_keys[bPawn][sqt];
+            // set king to the bitboard
             set_bit(bitboards[bKing], sqt);
+            // set king to the hash key
+            hash_key ^= piece_keys[bKing][sqt];
+
+            fifty = 0; // reset fifty moves counter
         }
         if (piece == wPawn && square_rank[sqt] == 1)
         {
+            // remove pawn from the bitboard
             pop_bit(bitboards[wPawn], sqt);
+            // remove pawn from the hash key
+            hash_key ^= piece_keys[wPawn][sqt];
+            // set king to the bitboard
             set_bit(bitboards[wKing], sqt);
+            // set king to the hash key
+            hash_key ^= piece_keys[wKing][sqt];
+
+            fifty = 0; // reset fifty moves counter
         }
 
         set_occupancies();
+
+        // change side
         side ^= 1;
+
+        // hash side
+        hash_key ^= side_key;
     }
     else
     {
-        if (move.cap > 0ULL)
+        if (cap > 0ULL)
             result = make_move(move, all_moves);
         else
             result = 0;
@@ -1209,6 +1424,49 @@ int make_move(move_t move, int move_type)
 
  ==================================
 \**********************************/
+
+// piece score table
+const int PST_P[BOUNDARY] =
+    {0,                    // 0 at start
+     0,   0,  0,  0,       //  01 - 04   piece promotion line
+     30, 35, 35, 30,       //  05 - 08
+     25, 30, 30, 25,   	   //  09 - 12
+     20, 25, 25, 20,       //  13 - 16
+     20, 25, 25, 20,   	   //  17 - 20   
+     15, 20, 20, 15,       //  21 - 24
+     10, 15, 15, 10,       //  25 - 28
+      5, 10, 10, 5
+};                         //  29 - 32
+
+const int PST_K[BOUNDARY] =
+    {0,                        // 0 at start
+     50, 50, 50, 50,  		   //  01 - 04
+     50, 50, 50, 50,           //  05 - 08
+     50, 50, 50, 50,  		   //  09 - 12
+     50, 50, 50, 50,  		   //  13 - 16
+     50, 50, 50, 50,   		   //  17 - 20
+     50, 50, 50, 50,   		   //  21 - 24
+     50, 50, 50, 50,           //  25 - 28
+     50, 50, 50, 50
+};  		                   //  29 - 32
+
+// check for vulnrebility
+static inline int count_open_squares(int square)
+{
+    U64 empty = ~occupancies[both] & all_squares;
+    U64 e;
+
+    int cnt = 0;
+   
+    for (int d = ne; d <= se; ++d)
+    {
+        e = empty & bb_dir[d][square];
+        if (e)
+            ++cnt;
+    }
+    
+    return cnt;
+}
 
 // evaluate the position on the board
 static inline int evaluate()
@@ -1239,11 +1497,8 @@ static inline int evaluate()
             int sq = get_ls1b_index(bb);
             if (get_bit(bitboards[wPawn], sq))
             {
-                score += 1000;
-                // centrum
-                if (sq == 26 || sq == 28 || sq == 35 || sq == 37)
-                    score += 5;
-                // passed checker
+                score += 1000 + PST_P[sq] - count_open_squares(sq);
+                // passed pawn
                 if (square_rank[sq] < black_rank)
                     score += (black_has_king) ? 10 : 50;
                 if (square_rank[sq] > white_rank)
@@ -1269,16 +1524,13 @@ static inline int evaluate()
             int sq = get_ls1b_index(bb);
             if (get_bit(bitboards[bPawn], sq))
             {
-                score -= 1000;
-                // centrum
-                if (sq == 26 || sq == 28 || sq == 35 || sq == 37)
-                    score -= 5;
-                // passed checker
+                score -= (1000 + PST_P[BOUNDARY - sq] - count_open_squares(sq));
+                // passed pawn
                 if (square_rank[sq] > white_rank)
                     score -= (white_has_king) ? 10 : 50;
             }
             else if (get_bit(bitboards[bKing], sq))
-                score -= 3000;
+                score -= (3000 + PST_K[BOUNDARY - sq]);
             pop_bit(bb, sq);
         }
     }
@@ -1304,7 +1556,7 @@ int ply = 0;
 int pv_length[MAX_PLY];
 
 // PV table [ply][ply]
-move_t pv_table[MAX_PLY][MAX_PLY];
+U64 pv_table[MAX_PLY][MAX_PLY];
 
 // follow PV & score PV move
 int follow_pv, score_pv;
@@ -1346,16 +1598,141 @@ static int stoptime = 0;
 // flag that forces the thinking to stop
 static int stopped = 0;
 
-// falg that indicates that the game is stopped
+// flag that indicates that the game is stopped
 static int stop_game_flag = 0;
 
-// evalaation score
-static int score = 0;
+// killer moves [id][ply]
+int killer_moves[2][MAX_PLY];
 
-// is move equal
-static inline int move_is_equal(move_t move1, move_t move2)
+// history moves [piece][square]
+int history_moves[12][64];
+
+/**********************************\
+ ==================================
+
+        Transposition table
+
+ ==================================
+\**********************************/
+
+// number hash table entries
+int hash_entries = 0;
+
+// define TT instance
+tt *hash_table = NULL;
+
+// clear TT (hash table)
+void clear_hash_table()
 {
-    return move1.sqf == move2.sqf && move1.sqt == move2.sqt && move1.cap == move2.cap;
+    // init hash table entry pointer
+    tt *hash_entry;
+
+    // loop over TT elements
+    for (hash_entry = hash_table; hash_entry < hash_table + hash_entries; hash_entry++)
+    {
+        // reset TT inner fields
+        hash_entry->hash_key = 0;
+        hash_entry->depth = 0;
+        hash_entry->flag = 0;
+        hash_entry->score = 0;
+    }
+}
+
+// dynamically allocate memory for hash table
+void init_hash_table(int mb)
+{
+    // init hash size
+    int hash_size = 0x100000 * mb;
+
+    // init number of hash entries
+    hash_entries = hash_size / sizeof(tt);
+
+    // free hash table if not empty
+    if (hash_table != NULL)
+    {
+#ifndef NDEBUG // print only in debug mode
+        printf("\n    Clearing hash memory...\n");
+#endif
+        // free hash table dynamic memory
+        free(hash_table);
+    }
+
+    // allocate memory
+    hash_table = (tt *)malloc(hash_entries * sizeof(tt));
+
+    // if allocation has failed
+    if (hash_table == NULL)
+    {
+#ifndef NDEBUG // print only in debug mode
+        printf("   Couldn't allocate memory for hash table, tryinr %dMB...", mb / 2);
+#endif
+
+        // try to allocate with half size
+        init_hash_table(mb / 2);
+    }
+
+    // if allocation succeeded
+    else
+    {
+        // clear hash table
+        clear_hash_table();
+#ifndef NDEBUG // print only in debug mode
+        printf("   Hash table is initialied with %d entries\n", hash_entries);
+#endif
+    }
+}
+
+// read hash entry data
+static inline int read_hash_entry(int alpha, int beta, int depth)
+{
+    // create a TT instance pointer to particular hash entry storing
+    // the scoring data for the current board position if available
+    tt *hash_entry = &hash_table[hash_key % hash_entries];
+
+    // make sure we're dealing with the exact position we need
+    if (hash_entry->hash_key == hash_key)
+    {
+        // make sure that we match the exact depth our search is now at
+        if (hash_entry->depth >= depth)
+        {
+            // extract stored score from TT entry
+            int score = hash_entry->score;
+
+            // match the exact (PV node) score
+            if (hash_entry->flag == hash_flag_exact)
+                // return exact (PV node) score
+                return score;
+
+            // match alpha (fail-low node) score
+            if ((hash_entry->flag == hash_flag_alpha) &&
+                (score <= alpha))
+                // return alpha (fail-low node) score
+                return alpha;
+
+            // match beta (fail-high node) score
+            if ((hash_entry->flag == hash_flag_beta) &&
+                (score >= beta))
+                // return beta (fail-high node) score
+                return beta;
+        }
+    }
+
+    // if hash entry doesn't exist
+    return no_hash_entry;
+}
+
+// write hash entry data
+static inline void write_hash_entry(int score, int depth, int hash_flag)
+{
+    // create a TT instance pointer to particular hash entry storing
+    // the scoring data for the current board position if available
+    tt *hash_entry = &hash_table[hash_key % hash_entries];
+
+    // write hash entry data
+    hash_entry->hash_key = hash_key;
+    hash_entry->score = score;
+    hash_entry->flag = hash_flag;
+    hash_entry->depth = depth;
 }
 
 // enable PV move scoring
@@ -1368,7 +1745,7 @@ static inline void enable_pv_scoring(moves_t *move_list)
     for (int count = 0; count < move_list->counter; ++count)
     {
         // make sure we hit PV move
-        if (move_is_equal(pv_table[0][ply], move_list->moves[count]))
+        if (pv_table[0][ply] == move_list->moves[count])
         {
             // enable move scoring
             score_pv = 1;
@@ -1380,13 +1757,13 @@ static inline void enable_pv_scoring(moves_t *move_list)
 }
 
 // score form a move
-static inline int score_move(move_t move)
+static inline int score_move(U64 move)
 {
     // if PV move scoring is allowed
     if (score_pv)
     {
         // make sure we are dealing with PV move
-        if (move_is_equal(pv_table[0][ply], move))
+        if (pv_table[0][ply] == move)
         {
             // disable score PV flag
             score_pv = 0;
@@ -1395,10 +1772,26 @@ static inline int score_move(move_t move)
             return 20000;
         }
     }
-    if (move.cap > 0ULL)
+    // captures
+    if (get_move_capture(move) > 0ULL)
     {
-        return 10000 + count_bits(move.cap);
+        return 10000 + count_bits(get_move_capture(move));
     }
+    // score quiet move
+    else
+    {
+        // score 1st killer move
+        if (killer_moves[0][ply] == move)
+            return 9000;
+
+        // score 2nd killer move
+        else if (killer_moves[1][ply] == move)
+            return 8000;
+        // score history move
+        else
+            return history_moves[get_move_piece(move)][get_move_target(move)];
+    }
+
     return GetRandomValue(0, 1000);
 }
 
@@ -1428,7 +1821,7 @@ static inline int sort_moves(moves_t *move_list)
                 move_scores[next_move] = temp_score;
 
                 // swap moves
-                move_t temp_move = move_list->moves[current_move];
+                U64 temp_move = move_list->moves[current_move];
                 move_list->moves[current_move] = move_list->moves[next_move];
                 move_list->moves[next_move] = temp_move;
             }
@@ -1541,7 +1934,26 @@ static inline int negamax(int alpha, int beta, int depth)
     pv_length[ply] = ply;
 
     // variable to store current move's score (from the static evaluation perspective)
-    int score;
+    int score = 0;
+
+    // define hash flag
+    int hash_flag = hash_flag_alpha;
+
+    if (fifty >= 100)
+    {
+        // return draw score
+        return 0;
+    }
+
+    // a hack by Pedro Castro to figure out whether the current node is PV node or not
+    int pv_node = beta - alpha > 1;
+
+    // read hash entry if we're not in a root ply and hash entry is available
+    // and current node is not a PV node
+    if (ply && (score = read_hash_entry(alpha, beta, depth)) != no_hash_entry && pv_node == 0)
+    // if the move has already been searched (hence has a value)
+    // we just return the score for this move without searching it
+        return score;
 
     // every stop thinking flag nodes
     if ((nodes & 2047) == 0)
@@ -1621,6 +2033,15 @@ static inline int negamax(int alpha, int beta, int depth)
         // found a better move
         if (score > alpha)
         {
+            // switch hash flag from storing score for fail-low node
+            // to the one storing score for PV node
+            hash_flag = hash_flag_exact;
+
+            // on quiet moves
+            if (get_move_capture(move_list->moves[count]) == 0ULL)
+                // store history moves
+                history_moves[get_move_piece(move_list->moves[count])][get_move_target(move_list->moves[count])] += depth;
+
             // PV node (position)
             alpha = score;
 
@@ -1638,6 +2059,16 @@ static inline int negamax(int alpha, int beta, int depth)
             // fail-hard beta cutoff
             if (score >= beta)
             {
+                // store hash entry with the score equal to beta
+                write_hash_entry(beta, depth, hash_flag_beta);
+                // on quiet moves
+                if (get_move_capture(move_list->moves[count]) == 0)
+                {
+                    // store killer moves
+                    killer_moves[1][ply] = killer_moves[0][ply];
+                    killer_moves[0][ply] = move_list->moves[count];
+                }
+
                 // node (position) fails high
                 return beta;
             }
@@ -1646,7 +2077,9 @@ static inline int negamax(int alpha, int beta, int depth)
 
     // we don't have any legal moves to make in the current postion
     if (legal_moves == 0)
-        return evaluate();
+        return 0;
+
+    write_hash_entry(alpha, depth, hash_flag);
 
     // node (position) fails low
     return alpha;
@@ -1655,6 +2088,12 @@ static inline int negamax(int alpha, int beta, int depth)
 // search current position
 static inline int search_position(int depth)
 {
+    // search start time
+    int start = get_time_ms();
+
+    // define best score variable
+    int score = 0;
+
     // reset nodes counter
     nodes = 0;
 
@@ -1669,20 +2108,27 @@ static inline int search_position(int depth)
     ply = 0;
 
     // clear helper data structures for search
+    memset(killer_moves, 0, sizeof(killer_moves));
+    memset(history_moves, 0, sizeof(history_moves));
     memset(pv_table, 0, sizeof(pv_table));
     memset(pv_length, 0, sizeof(pv_length));
 
     // define initial alpha beta bounds
-    int alpha = -INFINITY;
-    int beta = INFINITY;
+    int alpha = -infinity;
+    int beta = infinity;
 
     // iterative deepening
     for (int current_depth = 1; current_depth <= depth; current_depth++)
     {
         // if time is up
         if (stopped == 1)
+        {
+#ifndef NDEBUG // print only in debug mode
+            printf("stop calculating...\n");
+#endif
             // stop calculating and return best move so far
             break;
+        }
 
         // enable follow PV flag
         follow_pv = 1;
@@ -1693,8 +2139,8 @@ static inline int search_position(int depth)
         // we fell outside the window, so try again with a full-width window (and the same depth)
         if ((score <= alpha) || (score >= beta))
         {
-            alpha = -INFINITY;
-            beta = INFINITY;
+            alpha = -infinity;
+            beta = infinity;
             continue;
         }
 
@@ -1706,7 +2152,7 @@ static inline int search_position(int depth)
         if (pv_length[0])
         {
 #ifndef NDEBUG // print only in debug mode
-            printf("info score cp %d depth %d nodes %lld time %d pv ", score, current_depth, nodes, get_time_ms() - starttime);
+            printf("info score cp %d depth %d nodes %lld time %d pv ", score, current_depth, nodes, get_time_ms() - start);
             // loop over the moves within a PV line
             for (int count = 0; count < pv_length[0]; ++count)
             {
@@ -1727,7 +2173,7 @@ static inline int search_position(int depth)
     printf(" score: %d\n", score);
 #endif
 
-    return 0;
+    return score;
 }
 
 // Fill the time for on the chessclock for the color white or black
@@ -1761,6 +2207,9 @@ int gui_side;
 // game start
 int game_state = Game_start;
 
+// end game reason
+int game_end_reason = nop;
+
 // winner of the game
 int game_winner = both;
 
@@ -1781,12 +2230,12 @@ U64 move_options = 0ULL;
 // quick check which of the squares the selected piece can move to
 // when the human player is to move
 // square has a blue border
-U64 square_options[64];
+U64 square_options[BOUNDARY];
 
 // quick check which of the pieces can captured
 // when the human player is to move
 // square has a red border
-U64 cap_options[64];
+U64 cap_options[BOUNDARY];
 
 // square from the selected piece
 // when the human player is to move
@@ -1800,7 +2249,7 @@ int selected_square = 99;
 moves_t gui_movelist[1];
 
 // for showing the last played move
-move_t last_move[2];
+U64 last_move[2];
 
 // count the played moves in the game for white and black
 int move_counter[2];
@@ -1811,6 +2260,43 @@ static int task_ready = 0;
 
 // flag that indicates that the ai is thinking
 static int thread_busy = 0;
+
+// keep the initial timer setting
+int keep_timer;
+
+// keep the initial plustimer setting
+int keep_plus_timer;
+
+// show text in the terminal
+void show_text()
+{
+    // Create a file pointer and open the file "GFG.txt" in
+    // read mode.
+    FILE *file = fopen("./ned.md", "r");
+
+    // Buffer to store each line of the file.
+    char line[256];
+
+    // Check if the file was opened successfully.
+    if (file != NULL)
+    {
+        // Read each line from the file and store it in the 'line' buffer.
+        while (fgets(line, sizeof(line), file))
+        {
+            // Print each line to the standard output.
+            printf("%s", line);
+        }
+
+        // Close the file stream once all lines have been read.
+        fclose(file);
+    }
+    else
+    {
+        // Print an error message to the standard error
+        // stream if the file cannot be opened.
+        fprintf(stderr, "Unable to open file!\n");
+    }
+}
 
 // fill the gui_board for drawing
 void fill_gui_board()
@@ -1845,10 +2331,13 @@ void fill_options(moves_t *movelist)
 
     for (int index = 0; index < movelist->counter; ++index)
     {
-        move_t m = movelist->moves[index];
-        set_bit(move_options, (int)m.sqf);
-        set_bit(square_options[(int)m.sqf], (int)m.sqt);
-        cap_options[(int)m.sqf] |= m.cap;
+        U64 m = movelist->moves[index];
+        int sqf = get_move_source(m);
+        int sqt = get_move_target(m);
+        U64 cap = get_move_capture(m);
+        set_bit(move_options, sqf);
+        set_bit(square_options[sqf], sqt);
+        cap_options[sqf] |= cap;
     }
 }
 
@@ -1878,25 +2367,43 @@ int get_sqry(int row, int min)
     return 8;
 }
 
+// test if the position on the boaard is repeated 3 times
+int test_for_draw_repetition()
+{
+    int cnt = 0;
+    for (int i = 0; i < game_keys->gamelength; ++i)
+    {
+        if (hash_key == game_keys->hash_keys[i])
+            ++cnt;
+    }
+    if (cnt >= 3)
+    {
+        game_state = Game_stop;
+        game_end_reason = draw3;
+        return 1;
+    }
+    return 0;
+}
+
 // process the move
 void process_move(const int selected_piece, const int selected_square, moves_t *movelist)
 {
     for (int i = 0; i < movelist->counter; ++i)
     {
-        if (movelist->moves[i].sqf == selected_piece && movelist->moves[i].sqt == selected_square)
+        if (get_move_source(movelist->moves[i]) == selected_piece && get_move_target(movelist->moves[i]) == selected_square)
         {
             last_move[side] = movelist->moves[i];
             ++move_counter[side];
             make_move(movelist->moves[i], all_moves);
+            game_keys->hash_keys[game_keys->gamelength++] = hash_key;
+            test_for_draw_repetition();
+            print_board();
             break;
         }
     }
     gui_side = side;
     generate_moves(movelist);
     write_fen();
-#ifndef NDEBUG // print only in debug mode
-    printf("side to move: %d, eval: %d\n", gui_side, evaluate());
-#endif
     print_movelist(movelist);
     timer[side ^ 1] += plustimer[side ^ 1];
     press_clock = 1;
@@ -1912,28 +2419,36 @@ void process_mouseclick(const int x, const int y, moves_t *movelist)
 
     int sqrx = get_sqrx(x, BOARD_COL);
     int sqry = get_sqry(y, BOARD_ROW);
-    int sqr = -1;
+    int sqn = 0;
+    for (int i = 1; i <= NUM_SQUARES; ++i)
+    {
+        if (rowcol[i][0] == sqry && rowcol[i][1] == sqrx)
+        {
+            sqn = i;
+            break;
+        }
+    }
     // select square on the board
-    sqr = reversed ? 63 - (sqry * 8 + sqrx) : sqry * 8 + sqrx;
+    int sqr = reversed ? BOUNDARY - sqn : sqn;
     if (human_player == gui_side || human_player == both)
     {
         if (selected_piece == 99)
         {
-            if (get_bit(move_options, bb_squares[sqr]))
+            if (get_bit(move_options, sqr))
             {
-                selected_piece = bb_squares[sqr];
+                selected_piece = sqr;
 #ifndef NDEBUG // print only in debug mode
-                printf("\n selectpiece (row %d col %d)\n", rowcol[bb_squares[sqr]][0], rowcol[bb_squares[sqr]][1]);
+                printf("\n selectpiece (row %d col %d)\n", rowcol[sqr][0], rowcol[sqr][1]);
 #endif
             }
         }
         else
         {
-            if (get_bit(square_options[selected_piece], bb_squares[sqr]))
+            if (get_bit(square_options[selected_piece], sqr))
             {
-                selected_square = bb_squares[sqr];
+                selected_square = sqr;
 #ifndef NDEBUG // print only in debug mode
-                printf("\n selectsquare (row %d col %d)\n", rowcol[bb_squares[sqr]][0], rowcol[bb_squares[sqr]][1]);
+                printf("\n selectsquare (row %d col %d)\n", rowcol[sqr][0], rowcol[sqr][1]);
 #endif
                 process_move(selected_piece, selected_square, movelist);
                 selected_piece = 99;
@@ -1941,11 +2456,11 @@ void process_mouseclick(const int x, const int y, moves_t *movelist)
                 fill_gui_board();
                 fill_options(movelist);
             }
-            else if (get_bit(move_options, bb_squares[sqr]))
+            else if (get_bit(move_options, sqr))
             {
                 selected_piece = sqr;
 #ifndef NDEBUG // print only in debug mode
-                printf("\n selectpiece (row %d col %d)\n", rowcol[bb_squares[sqr]][0], rowcol[bb_squares[sqr]][1]);
+                printf("\n selectpiece (row %d col %d)\n", rowcol[sqr][0], rowcol[sqr][1]);
 #endif
             }
         }
@@ -1953,22 +2468,27 @@ void process_mouseclick(const int x, const int y, moves_t *movelist)
 }
 
 // start a new game
-void new_game(const int state, moves_t *movelist)
+void new_game(const int state, moves_t *movelist, int time, int plus)
 {
     // set timer settings for the clock
-    timer[white] = timer[black] = 600;
-    plustimer[white] = plustimer[black] = 0;
+    timer[white] = timer[black] = keep_timer = time;
+    plustimer[white] = plustimer[black] = keep_plus_timer = plus;
     thinktimer[white] = thinktimer[black] = 0;
     // fill the clock settings
     fill_clocktime(white);
     fill_clocktime(black);
     press_clock = 1;
     init_board();
+    // clear the hash table
+    clear_hash_table();
     gui_side = side;
     generate_moves(movelist);
+#ifndef NDEBUG // print only in debug mode
+    print_movelist(movelist);
+#endif
     fill_gui_board();
     fill_options(movelist);
-    memset(last_move, 0, sizeof(move_t) * 2);
+    memset(last_move, 0, sizeof(U64) * 2);
     move_counter[black] = 0;
     move_counter[white] = 0;
     game_state = state;
@@ -1998,6 +2518,11 @@ void *task(void *arg)
     printf("task score %d\n", sc);
 #endif
     timeset = 0;
+    process_move(get_move_source(pv_table[0][0]), get_move_target(pv_table[0][0]), gui_movelist);
+    selected_piece = 99;
+    selected_square = 99;
+    fill_gui_board();
+    fill_options(gui_movelist);
     // set the flag so the program knows that the thread is finished
     task_ready = 1;
     return NULL;
@@ -2010,16 +2535,20 @@ void *task(void *arg)
 int main()
 {
     init_bb_dir();
-    new_game(Game_start, gui_movelist);
-    int counter = 0;
-
+    init_hash_table(128);
+    new_game(Game_start, gui_movelist, 600, 0);
     if (TEST)
     {
         char *testfen = "B:W9,10,24:B8,K14,21";
         read_fen(testfen);
         generate_moves(gui_movelist);
+        print_movelist(gui_movelist);
         fill_gui_board();
         fill_options(gui_movelist);
+        human_player = both;
+        ai_player = -1;
+        reversed = 0;
+        game_state = Game_play;
     }
 
     // initialize raylib
@@ -2053,11 +2582,16 @@ int main()
     while (!WindowShouldClose())
     {
         // update
-        ++counter;
         if (press_clock)
         {
             starttimer[gui_side] = get_time_ms();
             press_clock = 0;
+        }
+        if (fifty >= 100)
+        {
+            game_winner = both;
+            game_state = Game_stop;
+            game_end_reason = draw50;
         }
         if (gui_movelist->counter == 0)
         {
@@ -2065,11 +2599,13 @@ int main()
             {
                 game_winner = black;
                 game_state = Game_stop;
+                game_end_reason = wMove;
             }
             else
             {
                 game_winner = white;
                 game_state = Game_stop;
+                game_end_reason = bMove;
             }
         }
         if (game_state == Game_play)
@@ -2080,6 +2616,7 @@ int main()
             {
                 game_state = Game_stop;
                 game_winner = gui_side ^ 1;
+                game_end_reason = (game_winner == black) ? wTime : bTime;
             }
             else // update timer
             {
@@ -2110,12 +2647,14 @@ int main()
             BOARD_COL,
             BOARD_ROW,
             RAYWHITE);
+        int sqr = 0;
         for (int row = 0; row < SIZE; ++row)
             for (int col = 0; col < SIZE; ++col)
                 if ((row + col) % 2 == 0)
                     continue;
                 else
                 {
+                    ++sqr;
                     Texture2D img = img_empty;
                     if (reversed)
                     {
@@ -2146,11 +2685,11 @@ int main()
                         RAYWHITE);
                     if (game_state == Game_play && (human_player == gui_side || human_player == both))
                     {
-                        int sq = (reversed) ? (7 - row) * 8 + 7 - col : row * 8 + col;
-                        U64 pbit = selected_piece == 99 ? get_bit(move_options, bb_squares[sq]) : selected_piece == bb_squares[sq] ? 1ULL
+                        int sq = (reversed) ? BOUNDARY - sqr : sqr;
+                        U64 pbit = selected_piece == 99 ? get_bit(move_options, sq) : selected_piece == sq ? 1ULL
                                                                                                            : 0ULL;
-                        U64 sbit = selected_piece == 99 ? 0ULL : get_bit(square_options[selected_piece], bb_squares[sq]);
-                        U64 cbit = selected_piece == 99 ? 0ULL : get_bit(cap_options[selected_piece], bb_squares[sq]);
+                        U64 sbit = selected_piece == 99 ? 0ULL : get_bit(square_options[selected_piece], sq);
+                        U64 cbit = selected_piece == 99 ? 0ULL : get_bit(cap_options[selected_piece], sq);
                         if (pbit)
                         {
                             for (int d = 0; d < 3; ++d)
@@ -2184,18 +2723,21 @@ int main()
                     }
                 }
         // draw coordinates
+        int sq = reversed ? BOUNDARY : 0;
         for (int row = 0; row < SIZE; ++row)
             for (int col = 0; col < SIZE; ++col)
             {
-                int sq = reversed ? 63 - (row * 8 + col) : row * 8 + col;
+                if ((row + col) % 2 == 0)
+                    continue;
+                sq = reversed ? sq - 1 : sq + 1;
                 DrawText(
-                    drawnumber[sq],
+                    squarenumber[sq],
                     BOARD_COL + SQUARE_SIZE * col + 2,
                     BOARD_ROW + SQUARE_SIZE * row + 2,
                     10,
                     RAYWHITE);
             }
-        // game start, choose color
+        // game start, choose color and time
         if (game_state != Game_play)
         {
             DrawTexture(
@@ -2209,6 +2751,12 @@ int main()
                 SCREEN_HEIGHT - 25,
                 20,
                 YELLOW);
+            DrawText(
+                "F1 = show helptext in the terminal",
+                BOARD_COL,
+                5,
+                20,
+                PURPLE);
             DrawText(
                 "Tijd per spel: A=+5min, B=-5min, C=+1min, D=-1min",
                 BOARD_COL,
@@ -2226,6 +2774,7 @@ int main()
         if (game_state == Game_play)
         {
             if (human_player == gui_side || human_player == both)
+            {
                 DrawText(
                     (selected_piece == 99) ? "Click op een groen gemarkeerd veld, click op x om op te geven"
                                            : "Click op een blauw gemarkeerd veld, click op x om op te geven",
@@ -2233,6 +2782,13 @@ int main()
                     SCREEN_HEIGHT - 25,
                     20,
                     YELLOW);
+                DrawText(
+                    "F1 = show helptext in the terminal",
+                    BOARD_COL,
+                    5,
+                    20,
+                    PURPLE);
+            }
             else if (ai_player == gui_side || ai_player == both)
                 DrawText(
                     "Ik denk na over mijn zet...",
@@ -2244,25 +2800,56 @@ int main()
         // game ends
         if (game_state == Game_stop)
         {
+            char *text;
+            switch (game_end_reason)
+            {
+            case wTime:
+                text = "zwart wint doordat wit geen tijd meer heeft";
+                break;
+            case bTime:
+                text = "wit wint doordat zwart geen tijd meer heeft";
+                break;
+            case wMove:
+                text = "zwart wint doordat wit niet meer kan zetten";
+                break;
+            case bMove:
+                text = "wit wint doordat zwart niet meer kan zetten";
+                break;
+            case wResign:
+                text = "zwart wint omdat wit op geeft";
+                break;
+            case bResign:
+                text = "wit wint omdat zwart op geeft";
+                break;
+            case draw50:
+                text = "remise door de 50 zetten regel";
+                break;
+            case draw3:
+                text = "remise door herhaling van zetten";
+                break;
+            default:
+                text = "unknown";
+                break;
+            }
             DrawText(
-                (game_winner == white) ? "Wit wint!" : "Zwart wint",
+                text,
                 BOARD_COL,
                 SCREEN_HEIGHT - 50,
                 20,
                 PURPLE);
         }
 
+        // draw the last move played
+        // for black
         if (game_state == Game_play)
         {
-            // draw the last move played
-            // for black
             if (move_counter[black] > 0)
             {
                 char text0[3];
                 intToStr(move_counter[black], text0);
-                char *text1 = squarenumber[(int)last_move[black].sqf];
-                char *text2 = squarenumber[(int)last_move[black].sqt];
-                char *text3 = last_move[black].cap ? "x" : "-";
+                char *text1 = squarenumber[get_move_source(last_move[black])];
+                char *text2 = squarenumber[get_move_target(last_move[black])];
+                char *text3 = get_move_capture(last_move[black]) ? "x" : "-";
                 int posx = BOARD_COL;
                 int posy = (reversed) ? BOARD_ROW + BOARD_SIZE + 4 : BOARD_ROW - 20;
                 DrawText(
@@ -2296,9 +2883,9 @@ int main()
             {
                 char text0[3];
                 intToStr(move_counter[white], text0);
-                char *text1 = squarenumber[(int)last_move[white].sqf];
-                char *text2 = squarenumber[(int)last_move[white].sqt];
-                char *text3 = last_move[white].cap ? "x" : "-";
+                char *text1 = squarenumber[get_move_source(last_move[white])];
+                char *text2 = squarenumber[get_move_target(last_move[white])];
+                char *text3 = get_move_capture(last_move[white]) ? "x" : "-";
                 int posx = BOARD_COL;
                 int posy = (reversed) ? BOARD_ROW - 20 : BOARD_ROW + BOARD_SIZE + 4;
                 DrawText(
@@ -2365,13 +2952,15 @@ int main()
         EndDrawing();
 
         // key press
-        if (IsKeyPressed(KEY_F5) && game_state != Game_play)
+        if (IsKeyPressed(KEY_F1) && (human_player == gui_side || human_player == both))
+            show_text();
+        else if (IsKeyPressed(KEY_F5) && game_state != Game_play)
         {
             reversed = 0;
             human_player = white;
             ai_player = black;
             if (game_state == Game_stop)
-                new_game(Game_play, gui_movelist);
+                new_game(Game_play, gui_movelist, keep_timer, keep_plus_timer);
             else
                 game_state = Game_play;
         }
@@ -2381,7 +2970,7 @@ int main()
             human_player = black;
             ai_player = white;
             if (game_state == Game_stop)
-                new_game(Game_play, gui_movelist);
+                new_game(Game_play, gui_movelist, keep_timer, keep_plus_timer);
             else
                 game_state = Game_play;
         }
@@ -2391,7 +2980,7 @@ int main()
             human_player = both;
             ai_player = -1;
             if (game_state == Game_stop)
-                new_game(Game_play, gui_movelist);
+                new_game(Game_play, gui_movelist, keep_timer, keep_plus_timer);
             else
                 game_state = Game_play;
         }
@@ -2401,7 +2990,7 @@ int main()
             human_player = -1;
             ai_player = both;
             if (game_state == Game_stop)
-                new_game(Game_play, gui_movelist);
+                new_game(Game_play, gui_movelist, keep_timer, keep_plus_timer);
             else
                 game_state = Game_play;
         }
@@ -2409,7 +2998,7 @@ int main()
         {
             if (timer[white] + 5 * 60 <= MAX_TIME * 60)
             {
-                timer[white] = timer[black] = timer[white] + 5 * 60;
+                timer[white] = timer[black] = keep_timer = timer[white] + 5 * 60;
                 fill_clocktime(white);
                 fill_clocktime(black);
             }
@@ -2418,7 +3007,7 @@ int main()
         {
             if (timer[white] - 5 * 60 >= MIN_TIME * 60)
             {
-                timer[white] = timer[black] = timer[white] - 5 * 60;
+                timer[white] = timer[black] = keep_timer = timer[white] - 5 * 60;
                 fill_clocktime(white);
                 fill_clocktime(black);
             }
@@ -2427,7 +3016,7 @@ int main()
         {
             if (timer[white] + 1 * 60 <= MAX_TIME * 60)
             {
-                timer[white] = timer[black] = timer[white] + 1 * 60;
+                timer[white] = timer[black] = keep_timer = timer[white] + 1 * 60;
                 fill_clocktime(white);
                 fill_clocktime(black);
             }
@@ -2436,7 +3025,7 @@ int main()
         {
             if (timer[white] - 1 * 60 >= MIN_TIME * 60)
             {
-                timer[white] = timer[black] = timer[white] - 1 * 60;
+                timer[white] = timer[black] = keep_timer = timer[white] - 1 * 60;
                 fill_clocktime(white);
                 fill_clocktime(black);
             }
@@ -2444,34 +3033,36 @@ int main()
         else if (IsKeyPressed(KEY_F) && game_state != Game_play)
         {
             if (plustimer[white] + 3 <= MAX_PLUS)
-                plustimer[white] = plustimer[black] = plustimer[white] + 3;
+                plustimer[white] = plustimer[black] = keep_plus_timer = plustimer[white] + 3;
         }
         else if (IsKeyPressed(KEY_G) && game_state != Game_play)
         {
             if (plustimer[white] - 3 >= MIN_PLUS)
-                plustimer[white] = plustimer[black] = plustimer[white] - 3;
+                plustimer[white] = plustimer[black] = keep_plus_timer = plustimer[white] - 3;
         }
         else if (IsKeyPressed(KEY_H) && game_state != Game_play)
         {
             if (plustimer[white] + 1 <= MAX_PLUS)
-                plustimer[white] = plustimer[black] = plustimer[white] + 1;
+                plustimer[white] = plustimer[black] = keep_plus_timer = plustimer[white] + 1;
         }
         else if (IsKeyPressed(KEY_I) && game_state != Game_play)
         {
             if (plustimer[white] - 1 >= MIN_PLUS)
-                plustimer[white] = plustimer[black] = plustimer[white] - 1;
+                plustimer[white] = plustimer[black] = keep_plus_timer = plustimer[white] - 1;
         }
         else if (IsKeyPressed(KEY_X) && game_state == Game_play)
         {
             game_state = Game_stop;
             game_winner = side ^= 1;
+            game_end_reason = (game_winner == black) ? wResign : bResign;
         }
-        else if (IsKeyPressed(KEY_ENTER) && game_state == Game_play)
+        else if (IsKeyPressed(KEY_ENTER) && game_state == Game_play &&
+        	(human_player == gui_side || human_player == both))
         {
-            if (gui_movelist->caplength > 0)
+            if (gui_movelist->counter == 1)
             {
-                move_t move = gui_movelist->moves[0];
-                process_move(move.sqf, move.sqt, gui_movelist);
+                U64 move = gui_movelist->moves[0];
+                process_move(get_move_source(move), get_move_target(move), gui_movelist);
                 selected_piece = 99;
                 selected_square = 99;
                 fill_gui_board();
@@ -2496,52 +3087,31 @@ int main()
         {
             if (gui_movelist->counter > 0)
             {
-                if (gui_movelist->counter == 1)
+#if (USE_ENGINE)
+                if (!thread_busy)
                 {
-                    if (counter % 5 == 0)
-                    {
-                        move_t bestmove = gui_movelist->moves[0];
-                        process_move(bestmove.sqf, bestmove.sqt, gui_movelist);
-                        selected_piece = 99;
-                        selected_square = 99;
-                        fill_gui_board();
-                        fill_options(gui_movelist);
-                    }
+                    // start the thread
+                    pthread_create(&thread, NULL, task, NULL);
+                    // forget that the thread is started, the task task_ready indicates when the thread is finished
+                    pthread_detach(thread);
                 }
-                else
+                else if (task_ready) // thread is finished
                 {
-                    if (USE_ENGINE)
-                    {
-                        if (!thread_busy)
-                        {
-                            // start the thread
-                            pthread_create(&thread, NULL, task, NULL);
-                            // forget that the thread is started, the task task_ready indicates when the thread is finished
-                            pthread_detach(thread);
-                        }
-                        else if (task_ready) // thread is finished
-                        {
-                            process_move(pv_table[0][0].sqf, pv_table[0][0].sqt, gui_movelist);
-                            selected_piece = 99;
-                            selected_square = 99;
-                            fill_gui_board();
-                            fill_options(gui_movelist);
-                            thread_busy = 0;
-                        }
-                    }
-                    else if (counter % 5 == 0)
-                    {
-                        move_t bestmove = gui_movelist->moves[GetRandomValue(0, gui_movelist->counter - 1)];
-                        process_move(bestmove.sqf, bestmove.sqt, gui_movelist);
-                        selected_piece = 99;
-                        selected_square = 99;
-                        fill_gui_board();
-                        fill_options(gui_movelist);
-                    }
+                    task_ready = 0;
+                    thread_busy = 0;
                 }
+#else
+                U64 bestmove = gui_movelist->moves[GetRandomValue(0, gui_movelist->counter - 1)];
+                process_move(get_move_source(bestmove), get_move_target(bestmove), gui_movelist);
+                selected_piece = 99;
+                selected_square = 99;
+                fill_gui_board();
+                fill_options(gui_movelist);
+#endif
             }
         }
     }
+
     // clean up
     // to stop searching rapidly when a thread is started
     stop_game_flag = 1;
@@ -2554,6 +3124,9 @@ int main()
             sleep(1);
         }
     }
+
+    // free hash table memory on exit
+    free(hash_table);
 
     // unload the images
     UnloadTexture(img_empty);
