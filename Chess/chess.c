@@ -56,112 +56,14 @@
 // define version BBC
 #define version "1.2"
 
-// FEN dedug positions
+// define bitboard data type
+#define U64 unsigned long long
+
+// define unsigned integer
+#define U32 unsigned int
+
+// FEN start posiion
 #define start_position "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1 "
-
-// set/get/pop bit macros
-#define set_bit(bitboard, square) ((bitboard) |= (1ULL << (square)))
-#define get_bit(bitboard, square) ((bitboard) & (1ULL << (square)))
-#define pop_bit(bitboard, square) ((bitboard) &= ~(1ULL << (square)))
-
-/*
-          binary move bits                               hexidecimal constants
-
-    0000 0000 0000 0000 0011 1111    source square       0x3f
-    0000 0000 0000 1111 1100 0000    target square       0xfc0
-    0000 0000 1111 0000 0000 0000    piece               0xf000
-    0000 1111 0000 0000 0000 0000    promoted piece      0xf0000
-    0001 0000 0000 0000 0000 0000    capture flag        0x100000
-    0010 0000 0000 0000 0000 0000    double push flag    0x200000
-    0100 0000 0000 0000 0000 0000    enpassant flag      0x400000
-    1000 0000 0000 0000 0000 0000    castling flag       0x800000
-*/
-
-// encode move
-#define encode_move(source, target, piece, promoted, capture, double_push, enpassant, castling) \
-    (source) |                                                                                  \
-        ((target) << 6) |                                                                       \
-        ((piece) << 12) |                                                                       \
-        ((promoted) << 16) |                                                                    \
-        ((capture) << 20) |                                                                     \
-        ((double_push) << 21) |                                                                 \
-        ((enpassant) << 22) |                                                                   \
-        ((castling) << 23)
-
-// extract source square
-#define get_move_source(move) ((move) & 0x3f)
-
-// extract target square
-#define get_move_target(move) (((move) & 0xfc0) >> 6)
-
-// extract piece
-#define get_move_piece(move) (((move) & 0xf000) >> 12)
-
-// extract promoted piece
-#define get_move_promoted(move) (((move) & 0xf0000) >> 16)
-
-// extract capture flag
-#define get_move_capture(move) ((move) & 0x100000)
-
-// extract double pawn push flag
-#define get_move_double(move) ((move) & 0x200000)
-
-// extract enpassant flag
-#define get_move_enpassant(move) ((move) & 0x400000)
-
-// extract castling flag
-#define get_move_castling(move) ((move) & 0x800000)
-
-typedef union
-{
-    struct
-    {
-        int bmove; // encode move
-        int score; // move score
-    } move_score;
-    int64_t move; // move as 64-bit integer for easy copying
-} move_t; // move structure
-
-// move list structure
-typedef struct
-{
-    // moves
-    move_t moves[256];
-
-    // move count
-    int count;
-
-} moves_t; // move list structure
-
-/*
-     These are the score bounds for the range of the mating scores
-   [-infinity, -mate_value ... -mate_score, ... score ... mate_score ... mate_value, infinity]
-*/
-
-#define infinity 50000
-#define mate_value 49000
-#define mate_score 48000
-
-// no hash entry found constant
-#define no_hash_entry 100000
-
-// transposition table hash flags
-#define hash_flag_exact 0
-#define hash_flag_alpha 1
-#define hash_flag_beta 2
-
-// transposition table data structure
-typedef struct
-{
-    u_int64_t hash_key; // "almost" unique chess position identifier
-    u_int8_t depth;     // current search depth
-    u_int8_t flag;      // flag the type of node (fail-low/fail-high/PV)
-    int score;          // score (alpha/beta/PV)
-    int best_move;      // best move
-} tt;                   // transposition table (TT aka hash table)
-
-// max ply that we can reach within a search
-#define max_ply 64
 
 // board squares
 enum
@@ -266,6 +168,22 @@ enum
 };
 
 // castling rights binary encoding
+/*
+
+    bin  dec
+    
+   0001    1  white king can castle to the king side
+   0010    2  white king can castle to the queen side
+   0100    4  black king can castle to the king side
+   1000    8  black king can castle to the queen side
+
+   examples
+
+   1111       both sides an castle both directions
+   1001       black king => queen side
+              white king => king side
+
+*/
 enum
 {
     wk = 1,
@@ -557,10 +475,10 @@ char *concat(const char *s1, const char *s2)
 */
 
 // piece bitboards
-u_int64_t bitboards[12];
+U64 bitboards[12];
 
 // occupancy bitboards
-u_int64_t occupancies[3];
+U64 occupancies[3];
 
 // side to move
 int side;
@@ -572,11 +490,11 @@ int enpassant = no_sq;
 int castle;
 
 // "almost" unique position identifier aka hash key or position key
-u_int64_t hash_key;
+U64 hash_key;
 
 // positions repetition table
 // 1000 is a number of plies (500 moves) in the entire game
-u_int64_t repetition_table[1000];
+U64 repetition_table[1000];
 
 // repetition index
 int repetition_index;
@@ -584,6 +502,7 @@ int repetition_index;
 // half move counter
 int ply;
 
+// add
 // fifty move rule counter
 int fifty;
 
@@ -663,13 +582,13 @@ static void communicate()
 \**********************************/
 
 // pseudo random number state
-u_int32_t random_state = 1804289383;
+U32 random_state = 1804289383;
 
 // generate 32-bit pseudo legal numbers
-u_int32_t get_random_U32_number()
+U32 get_random_U32_number()
 {
     // get current state
-    u_int32_t number = random_state;
+    U32 number = random_state;
 
     // XOR shift algorithm
     number ^= number << 13;
@@ -684,25 +603,25 @@ u_int32_t get_random_U32_number()
 }
 
 // generate 64-bit pseudo legal numbers
-u_int64_t get_random_u_int64_t_number()
+U64 get_random_U64_number()
 {
     // define 4 random numbers
-    u_int64_t n1, n2, n3, n4;
+    U64 n1, n2, n3, n4;
 
     // init random numbers slicing 16 bits from MS1B side
-    n1 = (u_int64_t)(get_random_U32_number()) & 0xFFFF;
-    n2 = (u_int64_t)(get_random_U32_number()) & 0xFFFF;
-    n3 = (u_int64_t)(get_random_U32_number()) & 0xFFFF;
-    n4 = (u_int64_t)(get_random_U32_number()) & 0xFFFF;
+    n1 = (U64)(get_random_U32_number()) & 0xFFFF;
+    n2 = (U64)(get_random_U32_number()) & 0xFFFF;
+    n3 = (U64)(get_random_U32_number()) & 0xFFFF;
+    n4 = (U64)(get_random_U32_number()) & 0xFFFF;
 
     // return random number
     return n1 | (n2 << 16) | (n3 << 32) | (n4 << 48);
 }
 
 // generate magic number candidate
-u_int64_t generate_magic_number()
+U64 generate_magic_number()
 {
-    return get_random_u_int64_t_number() & get_random_u_int64_t_number() & get_random_u_int64_t_number();
+    return get_random_U64_number() & get_random_U64_number() & get_random_U64_number();
 }
 
 /**********************************\
@@ -713,8 +632,12 @@ u_int64_t generate_magic_number()
  ==================================
 \**********************************/
 
+// set/get/pop bit macros
+#define set_bit(bitboard, square) ((bitboard) |= (1ULL << (square)))
+#define get_bit(bitboard, square) ((bitboard) & (1ULL << (square)))
+#define pop_bit(bitboard, square) ((bitboard) &= ~(1ULL << (square)))
 // count bits within a bitboard (Brian Kernighan's way)
-static inline int count_bits(u_int64_t bitboard)
+static inline int count_bits(U64 bitboard)
 {
     // bit counter
     int count = 0;
@@ -734,7 +657,7 @@ static inline int count_bits(u_int64_t bitboard)
 }
 
 // get least significant 1st bit index
-static inline int get_ls1b_index(u_int64_t bitboard)
+static inline int get_ls1b_index(U64 bitboard)
 {
     // make sure bitboard is not 0
     if (bitboard)
@@ -757,16 +680,16 @@ static inline int get_ls1b_index(u_int64_t bitboard)
 \**********************************/
 
 // random piece keys [piece][square]
-u_int64_t piece_keys[12][64];
+U64 piece_keys[12][64];
 
 // random enpassant keys [square]
-u_int64_t enpassant_keys[64];
+U64 enpassant_keys[64];
 
 // random castling keys
-u_int64_t castle_keys[16];
+U64 castle_keys[16];
 
 // random side key
-u_int64_t side_key;
+U64 side_key;
 
 // init random hash keys
 void init_random_keys()
@@ -780,31 +703,31 @@ void init_random_keys()
         // loop over board squares
         for (int square = 0; square < 64; square++)
             // init random piece keys
-            piece_keys[piece][square] = get_random_u_int64_t_number();
+            piece_keys[piece][square] = get_random_U64_number();
     }
 
     // loop over board squares
     for (int square = 0; square < 64; square++)
         // init random enpassant keys
-        enpassant_keys[square] = get_random_u_int64_t_number();
+        enpassant_keys[square] = get_random_U64_number();
 
     // loop over castling keys
     for (int index = 0; index < 16; index++)
         // init castling keys
-        castle_keys[index] = get_random_u_int64_t_number();
+        castle_keys[index] = get_random_U64_number();
 
     // init random side key
-    side_key = get_random_u_int64_t_number();
+    side_key = get_random_U64_number();
 }
 
 // generate "almost" unique position ID aka hash key from scratch
-u_int64_t generate_hash_key()
+U64 generate_hash_key()
 {
     // final hash key
-    u_int64_t final_key = 0ULL;
+    U64 final_key = 0ULL;
 
     // temp piece bitboard copy
-    u_int64_t bitboard;
+    U64 bitboard;
 
     // loop over piece bitboards
     for (int piece = P; piece <= k; piece++)
@@ -851,7 +774,7 @@ u_int64_t generate_hash_key()
 \**********************************/
 
 // print bitboard
-void print_bitboard(u_int64_t bitboard)
+void print_bitboard(U64 bitboard)
 {
 #ifndef NDEBUG // print only in debug mode
     // print offset
@@ -945,6 +868,7 @@ void print_board()
            (castle & bk) ? 'k' : '-',
            (castle & bq) ? 'q' : '-');
 
+	// add
     // fifty move rule counter
     printf("     50 moves rule: %d\n", (fifty / 2));
 
@@ -966,6 +890,7 @@ void reset_board()
     side = 0;
     enpassant = no_sq;
     castle = 0;
+    // add
     // reset fifty move rule counter
     fifty = 0;
 
@@ -1093,6 +1018,7 @@ void parse_fen(char *fen)
     else
         enpassant = no_sq;
 
+    // add
     // go to parsing half move counter (increment pointer to FEN string)
     fen++;
 
@@ -1143,16 +1069,16 @@ void parse_fen(char *fen)
 */
 
 // not A file constant
-const u_int64_t not_a_file = 18374403900871474942ULL;
+const U64 not_a_file = 18374403900871474942ULL;
 
 // not H file constant
-const u_int64_t not_h_file = 9187201950435737471ULL;
+const U64 not_h_file = 9187201950435737471ULL;
 
 // not HG file constant
-const u_int64_t not_hg_file = 4557430888798830399ULL;
+const U64 not_hg_file = 4557430888798830399ULL;
 
 // not AB file constant
-const u_int64_t not_ab_file = 18229723555195321596ULL;
+const U64 not_ab_file = 18229723555195321596ULL;
 
 // bishop relevant occupancy bit count for every square on board
 const int bishop_relevant_bits[64] = {
@@ -1177,7 +1103,7 @@ const int rook_relevant_bits[64] = {
     12, 11, 11, 11, 11, 11, 11, 12};
 
 // rook magic numbers
-u_int64_t rook_magic_numbers[64] = {
+U64 rook_magic_numbers[64] = {
     0x8a80104000800020ULL,
     0x140002000100040ULL,
     0x2801880a0017001ULL,
@@ -1244,7 +1170,7 @@ u_int64_t rook_magic_numbers[64] = {
     0x1004081002402ULL};
 
 // bishop magic numbers
-u_int64_t bishop_magic_numbers[64] = {
+U64 bishop_magic_numbers[64] = {
     0x40040844404084ULL,
     0x2004208a004208ULL,
     0x10190041080202ULL,
@@ -1311,34 +1237,34 @@ u_int64_t bishop_magic_numbers[64] = {
     0x4010011029020020ULL};
 
 // pawn attacks table [side][square]
-u_int64_t pawn_attacks[2][64];
+U64 pawn_attacks[2][64];
 
 // knight attacks table [square]
-u_int64_t knight_attacks[64];
+U64 knight_attacks[64];
 
 // king attacks table [square]
-u_int64_t king_attacks[64];
+U64 king_attacks[64];
 
 // bishop attack masks
-u_int64_t bishop_masks[64];
+U64 bishop_masks[64];
 
 // rook attack masks
-u_int64_t rook_masks[64];
+U64 rook_masks[64];
 
 // bishop attacks table [square][occupancies]
-u_int64_t bishop_attacks[64][512];
+U64 bishop_attacks[64][512];
 
 // rook attacks rable [square][occupancies]
-u_int64_t rook_attacks[64][4096];
+U64 rook_attacks[64][4096];
 
 // generate pawn attacks
-u_int64_t mask_pawn_attacks(int side, int square)
+U64 mask_pawn_attacks(int side, int square)
 {
     // result attacks bitboard
-    u_int64_t attacks = 0ULL;
+    U64 attacks = 0ULL;
 
     // piece bitboard
-    u_int64_t bitboard = 0ULL;
+    U64 bitboard = 0ULL;
 
     // set piece on board
     set_bit(bitboard, square);
@@ -1367,13 +1293,13 @@ u_int64_t mask_pawn_attacks(int side, int square)
 }
 
 // generate knight attacks
-u_int64_t mask_knight_attacks(int square)
+U64 mask_knight_attacks(int square)
 {
     // result attacks bitboard
-    u_int64_t attacks = 0ULL;
+    U64 attacks = 0ULL;
 
     // piece bitboard
-    u_int64_t bitboard = 0ULL;
+    U64 bitboard = 0ULL;
 
     // set piece on board
     set_bit(bitboard, square);
@@ -1401,13 +1327,13 @@ u_int64_t mask_knight_attacks(int square)
 }
 
 // generate king attacks
-u_int64_t mask_king_attacks(int square)
+U64 mask_king_attacks(int square)
 {
     // result attacks bitboard
-    u_int64_t attacks = 0ULL;
+    U64 attacks = 0ULL;
 
     // piece bitboard
-    u_int64_t bitboard = 0ULL;
+    U64 bitboard = 0ULL;
 
     // set piece on board
     set_bit(bitboard, square);
@@ -1435,10 +1361,10 @@ u_int64_t mask_king_attacks(int square)
 }
 
 // mask bishop attacks
-u_int64_t mask_bishop_attacks(int square)
+U64 mask_bishop_attacks(int square)
 {
     // result attacks bitboard
-    u_int64_t attacks = 0ULL;
+    U64 attacks = 0ULL;
 
     // init ranks & files
     int r, f;
@@ -1462,10 +1388,10 @@ u_int64_t mask_bishop_attacks(int square)
 }
 
 // mask rook attacks
-u_int64_t mask_rook_attacks(int square)
+U64 mask_rook_attacks(int square)
 {
     // result attacks bitboard
-    u_int64_t attacks = 0ULL;
+    U64 attacks = 0ULL;
 
     // init ranks & files
     int r, f;
@@ -1489,10 +1415,10 @@ u_int64_t mask_rook_attacks(int square)
 }
 
 // generate bishop attacks on the fly
-u_int64_t bishop_attacks_on_the_fly(int square, u_int64_t block)
+U64 bishop_attacks_on_the_fly(int square, U64 block)
 {
     // result attacks bitboard
-    u_int64_t attacks = 0ULL;
+    U64 attacks = 0ULL;
 
     // init ranks & files
     int r, f;
@@ -1535,10 +1461,10 @@ u_int64_t bishop_attacks_on_the_fly(int square, u_int64_t block)
 }
 
 // generate rook attacks on the fly
-u_int64_t rook_attacks_on_the_fly(int square, u_int64_t block)
+U64 rook_attacks_on_the_fly(int square, U64 block)
 {
     // result attacks bitboard
-    u_int64_t attacks = 0ULL;
+    U64 attacks = 0ULL;
 
     // init ranks & files
     int r, f;
@@ -1599,10 +1525,10 @@ void init_leapers_attacks()
 }
 
 // set occupancies
-u_int64_t set_occupancy(int index, int bits_in_mask, u_int64_t attack_mask)
+U64 set_occupancy(int index, int bits_in_mask, U64 attack_mask)
 {
     // occupancy map
-    u_int64_t occupancy = 0ULL;
+    U64 occupancy = 0ULL;
 
     // loop over the range of bits within attack mask
     for (int count = 0; count < bits_in_mask; count++)
@@ -1631,6 +1557,92 @@ u_int64_t set_occupancy(int index, int bits_in_mask, u_int64_t attack_mask)
  ==================================
 \**********************************/
 
+// find appropriate magic number
+U64 find_magic_number(int square, int relevant_bits, int bishop)
+{
+    // init occupancies
+    U64 occupancies[4096];
+    
+    // init attack tables
+    U64 attacks[4096];
+    
+    // init used attacks
+    U64 used_attacks[4096];
+    
+    // init attack mask for a current piece
+    U64 attack_mask = bishop ? mask_bishop_attacks(square) : mask_rook_attacks(square);
+    
+    // init occupancy indices
+    int occupancy_indices = 1 << relevant_bits;
+    
+    // loop over occupancy indices
+    for (int index = 0; index < occupancy_indices; index++)
+    {
+        // init occupancies
+        occupancies[index] = set_occupancy(index, relevant_bits, attack_mask);
+        
+        // init attacks
+        attacks[index] = bishop ? bishop_attacks_on_the_fly(square, occupancies[index]) :
+                                    rook_attacks_on_the_fly(square, occupancies[index]);
+    }
+    
+    // test magic numbers loop
+    for (int random_count = 0; random_count < 100000000; random_count++)
+    {
+        // generate magic number candidate
+        U64 magic_number = generate_magic_number();
+        
+        // skip inappropriate magic numbers
+        if (count_bits((attack_mask * magic_number) & 0xFF00000000000000) < 6) continue;
+        
+        // init used attacks
+        memset(used_attacks, 0ULL, sizeof(used_attacks));
+        
+        // init index & fail flag
+        int index, fail;
+        
+        // test magic index loop
+        for (index = 0, fail = 0; !fail && index < occupancy_indices; index++)
+        {
+            // init magic index
+            int magic_index = (int)((occupancies[index] * magic_number) >> (64 - relevant_bits));
+            
+            // if magic index works
+            if (used_attacks[magic_index] == 0ULL)
+                // init used attacks
+                used_attacks[magic_index] = attacks[index];
+            
+            // otherwise
+            else if (used_attacks[magic_index] != attacks[index])
+                // magic index doesn't work
+                fail = 1;
+        }
+        
+        // if magic number works
+        if (!fail)
+            // return it
+            return magic_number;
+    }
+    
+    // if magic number doesn't work
+    printf("  Magic number fails!\n");
+    return 0ULL;
+}
+
+// init magic numbers
+void init_magic_numbers()
+{
+    // loop over 64 board squares
+    for (int square = 0; square < 64; square++)
+        // init rook magic numbers
+        rook_magic_numbers[square] = find_magic_number(square, rook_relevant_bits[square], rook);
+
+    // loop over 64 board squares
+    for (int square = 0; square < 64; square++)
+        // init bishop magic numbers
+        bishop_magic_numbers[square] = find_magic_number(square, bishop_relevant_bits[square], bishop);
+}
+
 // init slider piece's attack tables
 void init_sliders_attacks(int bishop)
 {
@@ -1642,7 +1654,7 @@ void init_sliders_attacks(int bishop)
         rook_masks[square] = mask_rook_attacks(square);
 
         // init current mask
-        u_int64_t attack_mask = bishop ? bishop_masks[square] : rook_masks[square];
+        U64 attack_mask = bishop ? bishop_masks[square] : rook_masks[square];
 
         // init relevant occupancy bit count
         int relevant_bits_count = count_bits(attack_mask);
@@ -1657,7 +1669,7 @@ void init_sliders_attacks(int bishop)
             if (bishop)
             {
                 // init current occupancy variation
-                u_int64_t occupancy = set_occupancy(index, relevant_bits_count, attack_mask);
+                U64 occupancy = set_occupancy(index, relevant_bits_count, attack_mask);
 
                 // init magic index
                 int magic_index = (occupancy * bishop_magic_numbers[square]) >> (64 - bishop_relevant_bits[square]);
@@ -1670,7 +1682,7 @@ void init_sliders_attacks(int bishop)
             else
             {
                 // init current occupancy variation
-                u_int64_t occupancy = set_occupancy(index, relevant_bits_count, attack_mask);
+                U64 occupancy = set_occupancy(index, relevant_bits_count, attack_mask);
 
                 // init magic index
                 int magic_index = (occupancy * rook_magic_numbers[square]) >> (64 - rook_relevant_bits[square]);
@@ -1683,7 +1695,7 @@ void init_sliders_attacks(int bishop)
 }
 
 // get bishop attacks
-static inline u_int64_t get_bishop_attacks(int square, u_int64_t occupancy)
+static inline U64 get_bishop_attacks(int square, U64 occupancy)
 {
     // get bishop attacks assuming current board occupancy
     occupancy &= bishop_masks[square];
@@ -1695,7 +1707,7 @@ static inline u_int64_t get_bishop_attacks(int square, u_int64_t occupancy)
 }
 
 // get rook attacks
-static inline u_int64_t get_rook_attacks(int square, u_int64_t occupancy)
+static inline U64 get_rook_attacks(int square, U64 occupancy)
 {
     // get rook attacks assuming current board occupancy
     occupancy &= rook_masks[square];
@@ -1707,16 +1719,16 @@ static inline u_int64_t get_rook_attacks(int square, u_int64_t occupancy)
 }
 
 // get queen attacks
-static inline u_int64_t get_queen_attacks(int square, u_int64_t occupancy)
+static inline U64 get_queen_attacks(int square, U64 occupancy)
 {
     // init result attacks bitboard
-    u_int64_t queen_attacks = 0ULL;
+    U64 queen_attacks = 0ULL;
 
     // init bishop occupancies
-    u_int64_t bishop_occupancy = occupancy;
+    U64 bishop_occupancy = occupancy;
 
     // init rook occupancies
-    u_int64_t rook_occupancy = occupancy;
+    U64 rook_occupancy = occupancy;
 
     // get bishop attacks assuming current board occupancy
     bishop_occupancy &= bishop_masks[square];
@@ -1745,6 +1757,7 @@ static inline u_int64_t get_queen_attacks(int square, u_int64_t occupancy)
 
  ==================================
 \**********************************/
+
 
 // is square current given attacked by the current given side
 static inline int is_square_attacked(int square, int side)
@@ -1812,6 +1825,75 @@ void print_attacked_squares(int side)
     printf("\n     a b c d e f g h\n\n");
 #endif
 }
+
+/*
+          binary move bits                               hexidecimal constants
+    
+    0000 0000 0000 0000 0011 1111    source square       0x3f
+    0000 0000 0000 1111 1100 0000    target square       0xfc0
+    0000 0000 1111 0000 0000 0000    piece               0xf000
+    0000 1111 0000 0000 0000 0000    promoted piece      0xf0000
+    0001 0000 0000 0000 0000 0000    capture flag        0x100000
+    0010 0000 0000 0000 0000 0000    double push flag    0x200000
+    0100 0000 0000 0000 0000 0000    enpassant flag      0x400000
+    1000 0000 0000 0000 0000 0000    castling flag       0x800000
+*/
+
+// encode move
+#define encode_move(source, target, piece, promoted, capture, double_push, enpassant, castling) \
+    ((source)) |          \
+    ((target) << 6) |     \
+    ((piece) << 12) |     \
+    ((promoted) << 16) |  \
+    ((capture) << 20) |   \
+    ((double_push) << 21) |    \
+    ((enpassant) << 22) | \
+    ((castling) << 23)    \
+    
+// extract source square
+#define get_move_source(move) ((move) & 0x3f)
+
+// extract target square
+#define get_move_target(move) (((move) & 0xfc0) >> 6)
+
+// extract piece
+#define get_move_piece(move) (((move) & 0xf000) >> 12)
+
+// extract promoted piece
+#define get_move_promoted(move) (((move) & 0xf0000) >> 16)
+
+// extract capture flag
+#define get_move_capture(move) ((move) & 0x100000)
+
+// extract double pawn push flag
+#define get_move_double(move) ((move) & 0x200000)
+
+// extract enpassant flag
+#define get_move_enpassant(move) ((move) & 0x400000)
+
+// extract castling flag
+#define get_move_castling(move) ((move) & 0x800000)
+
+typedef union
+{
+    struct
+    {
+        int bmove; // encode move
+        int score; // move score
+    } move_score;
+    int64_t move; // move as 64-bit integer for easy copying
+} move_t; // move structure
+
+// move list structure
+typedef struct
+{
+    // moves
+    move_t moves[256];
+
+    // move count
+    int count;
+
+} moves_t; // move list structure
 
 // add move to the move list
 static inline void add_move(moves_t *move_list, int move)
@@ -1890,9 +1972,10 @@ void print_move_list(moves_t *move_list)
 #endif
 }
 
+// add
 // preserve board state
 #define copy_board()                                                    \
-    u_int64_t bitboards_copy[12], occupancies_copy[3], hash_key_copy;   \
+    U64 bitboards_copy[12], occupancies_copy[3], hash_key_copy;   \
     int side_copy, enpassant_copy, castle_copy, fifty_copy;             \
     memcpy(bitboards_copy, bitboards, 96);                              \
     memcpy(occupancies_copy, occupancies, 24);                          \
@@ -2218,7 +2301,7 @@ static inline void generate_moves(moves_t *move_list)
     int source_square, target_square;
 
     // define current piece's bitboard copy & it's attacks
-    u_int64_t bitboard, attacks;
+    U64 bitboard, attacks;
 
     // loop over all the bitboards
     for (int piece = P; piece <= k; piece++)
@@ -2260,7 +2343,7 @@ static inline void generate_moves(moves_t *move_list)
 
                             // two squares ahead pawn move
                             if ((source_square >= a2 && source_square <= h2) && !get_bit(occupancies[both], target_square - 8))
-                                add_move(move_list, encode_move(source_square, target_square - 8, piece, 0, 0, 1, 0, 0));
+                                add_move(move_list, encode_move(source_square, (target_square - 8), piece, 0, 0, 1, 0, 0));
                         }
                     }
 
@@ -2294,7 +2377,7 @@ static inline void generate_moves(moves_t *move_list)
                     if (enpassant != no_sq)
                     {
                         // lookup pawn attacks and bitwise AND with enpassant square (bit)
-                        u_int64_t enpassant_attacks = pawn_attacks[side][source_square] & (1ULL << enpassant);
+                        U64 enpassant_attacks = pawn_attacks[side][source_square] & (1ULL << enpassant);
 
                         // make sure enpassant capture available
                         if (enpassant_attacks)
@@ -2407,7 +2490,7 @@ static inline void generate_moves(moves_t *move_list)
                     if (enpassant != no_sq)
                     {
                         // lookup pawn attacks and bitwise AND with enpassant square (bit)
-                        u_int64_t enpassant_attacks = pawn_attacks[side][source_square] & (1ULL << enpassant);
+                        U64 enpassant_attacks = pawn_attacks[side][source_square] & (1ULL << enpassant);
 
                         // make sure enpassant capture available
                         if (enpassant_attacks)
@@ -2638,7 +2721,97 @@ static inline void generate_moves(moves_t *move_list)
 \**********************************/
 
 // leaf nodes (number of positions reached during the test of the move generator at a given depth)
-u_int64_t nodes;
+U64 nodes;
+
+// perft driver
+static inline void perft_driver(int depth)
+{
+    // reccursion escape condition
+    if (depth == 0)
+    {
+        // increment nodes count (count reached positions)
+        nodes++;
+        return;
+    }
+    
+    // create move list instance
+    moves_t move_list[1];
+    
+    // generate moves
+    generate_moves(move_list);
+    
+        // loop over generated moves
+    for (int move_count = 0; move_count < move_list->count; move_count++)
+    {   
+        // preserve board state
+        copy_board();
+        
+        // make move
+        if (!make_move(move_list->moves[move_count].move_score.bmove, all_moves))
+            // skip to the next move
+            continue;
+        
+        // call perft driver recursively
+        perft_driver(depth - 1);
+        
+        // take back
+        take_back();        
+    }
+}
+
+// perft test
+void perft_test(int depth)
+{
+    // reset nodes count
+    nodes = 0ULL;
+    
+    printf("\n     Performance test\n\n");
+    
+    // create move list instance
+    moves_t move_list[1];
+    
+    // generate moves
+    generate_moves(move_list);
+    
+    // init start time
+    long start = get_time_ms();
+    
+    // loop over generated moves
+    for (int move_count = 0; move_count < move_list->count; move_count++)
+    {   
+        // preserve board state
+        copy_board();
+        
+        // make move
+        if (!make_move(move_list->moves[move_count].move_score.bmove, all_moves))
+            // skip to the next move
+            continue;
+        
+        // cummulative nodes
+        long cummulative_nodes = nodes;
+        
+        // call perft driver recursively
+        perft_driver(depth - 1);
+        
+        // old nodes
+        long old_nodes = nodes - cummulative_nodes;
+        
+        // take back
+        take_back();
+        
+        // print move
+        printf("     move: %s%s%c  nodes: %ld\n", square_to_coordinates[get_move_source(move_list->moves[move_count].move_score.bmove)],
+                                                  square_to_coordinates[get_move_target(move_list->moves[move_count].move_score.bmove)],
+                                                  get_move_promoted(move_list->moves[move_count].move_score.bmove) ? promoted_pieces[get_move_promoted(move_list->moves[move_count].move_score.bmove)] : ' ',
+                                                  old_nodes);
+    }
+    
+    // print results
+    printf("\n    Depth: %d\n", depth);
+    printf("    Nodes: %lld\n", nodes);
+    printf("     Time: %ld\n\n", get_time_ms() - start);
+}
+
 
 /**********************************\
  ==================================
@@ -2831,19 +3004,19 @@ const int mirror_score[128] =
 */
 
 // file masks [square]
-u_int64_t file_masks[64];
+U64 file_masks[64];
 
 // rank masks [square]
-u_int64_t rank_masks[64];
+U64 rank_masks[64];
 
 // isolated pawn masks [square]
-u_int64_t isolated_masks[64];
+U64 isolated_masks[64];
 
 // white passed pawn masks [square]
-u_int64_t white_passed_masks[64];
+U64 white_passed_masks[64];
 
 // black passed pawn masks [square]
-u_int64_t black_passed_masks[64];
+U64 black_passed_masks[64];
 
 // extract rank from a square [square]
 const int get_rank[64] =
@@ -2888,10 +3061,10 @@ static const int queen_mobility_endgame = 2;
 const int king_shield_bonus = 5;
 
 // set file or rank mask
-u_int64_t set_file_rank_mask(int file_number, int rank_number)
+U64 set_file_rank_mask(int file_number, int rank_number)
 {
     // file or rank mask
-    u_int64_t mask = 0ULL;
+    U64 mask = 0ULL;
 
     // loop over ranks
     for (int rank = 0; rank < 8; rank++)
@@ -3073,7 +3246,7 @@ static inline int evaluate()
     int score = 0, score_opening = 0, score_endgame = 0;
 
     // current pieces bitboard copy
-    u_int64_t bitboard;
+    U64 bitboard;
 
     // init piece & square
     int piece, square;
@@ -3378,6 +3551,14 @@ static inline int evaluate()
  ==================================
 \**********************************/
 
+/* 
+     These are the score bounds for the range of the mating scores
+   [-infinity, -mate_value ... -mate_score, ... score ... mate_score ... mate_value, infinity]
+*/
+   
+#define infinity 50000
+#define mate_value 49000
+#define mate_score 48000
 // most valuable victim & less valuable attacker
 
 /*
@@ -3408,6 +3589,8 @@ static int mvv_lva[12][12] = {
     {102, 202, 302, 402, 502, 602, 102, 202, 302, 402, 502, 602},
     {101, 201, 301, 401, 501, 601, 101, 201, 301, 401, 501, 601},
     {100, 200, 300, 400, 500, 600, 100, 200, 300, 400, 500, 600}};
+// max ply that we can reach within a search
+#define max_ply 64
 
 // killer moves [id][ply]
 int killer_moves[2][max_ply];
@@ -3457,6 +3640,24 @@ int follow_pv, score_pv;
 // number hash table entries
 int hash_entries = 0;
 
+// no hash entry found constant
+#define no_hash_entry 100000
+
+// transposition table hash flags
+#define hash_flag_exact 0
+#define hash_flag_alpha 1
+#define hash_flag_beta 2
+
+// transposition table data structure
+// add best_move
+typedef struct {
+    U64 hash_key;   // "almost" unique chess position identifier
+    int depth;      // current search depth
+    int flag;       // flag the type of node (fail-low/fail-high/PV) 
+    int score;      // score (alpha/beta/PV)
+    int best_move;  // best move found // add
+} tt;               // transposition table (TT aka hash table)
+
 // define TT instance
 tt *hash_table = NULL;
 
@@ -3474,7 +3675,7 @@ void clear_hash_table()
         hash_entry->depth = 0;
         hash_entry->flag = 0;
         hash_entry->score = 0;
-        hash_entry->best_move = 0;
+        hash_entry->best_move = 0; 
     }
 }
 
@@ -3522,8 +3723,9 @@ void init_hash_table(int mb)
     }
 }
 
+// add
 // read hash entry data
-static inline int read_hash_entry(int alpha, int beta, int depth)
+static inline int read_hash_entry(int alpha, int beta, int* best_move, int depth)
 {
     // create a TT instance pointer to particular hash entry storing
     // the scoring data for the current board position if available
@@ -3562,14 +3764,18 @@ static inline int read_hash_entry(int alpha, int beta, int depth)
                 // return beta (fail-high node) score
                 return beta;
         }
+        
+        // store best move add
+        *best_move = hash_entry->best_move;
     }
 
     // if hash entry doesn't exist
     return no_hash_entry;
 }
 
+// add
 // write hash entry data
-static inline void write_hash_entry(int score, int depth, int hash_flag)
+static inline void write_hash_entry(int score, int best_move, int depth, int hash_flag)
 {
     // create a TT instance pointer to particular hash entry storing
     // the scoring data for the current board position if available
@@ -3587,6 +3793,7 @@ static inline void write_hash_entry(int score, int depth, int hash_flag)
     hash_entry->score = score;
     hash_entry->flag = hash_flag;
     hash_entry->depth = depth;
+    hash_entry->best_move = best_move; // add
 }
 
 // enable PV move scoring
@@ -3642,6 +3849,9 @@ static inline int score_move(int move)
     // score capture move
     if (get_move_capture(move))
     {
+        // init source piece
+        int piece = get_move_piece(move);
+        
         // init target piece
         int target_piece = P;
 
@@ -3671,9 +3881,9 @@ static inline int score_move(int move)
                 break;
             }
         }
-
-        // score move by MVV LVA lookup [source piece][target piece]
-        return mvv_lva[get_move_piece(move)][target_piece] + 10000;
+        
+	    // score move by MVV LVA lookup [source piece][target piece]
+        return mvv_lva[piece][target_piece] + 10000;
     }
 
     // score quiet move
@@ -3694,8 +3904,9 @@ static inline int score_move(int move)
     return 0;
 }
 
+// add
 // sort moves in descending order
-static inline int sort_moves(moves_t *move_list)
+static inline int sort_moves(moves_t *move_list, int best_move)
 {
     // score all the moves within a move list
     for (int count = 0; count < move_list->count; count++)
@@ -3791,8 +4002,8 @@ static inline int quiescence(int alpha, int beta)
     generate_moves(move_list);
 
     // sort moves
-    sort_moves(move_list);
-
+    sort_moves(move_list, 0);
+    
     // loop over moves within a movelist
     for (int count = 0; count < move_list->count; count++)
     {
@@ -3873,7 +4084,11 @@ static inline int negamax(int alpha, int beta, int depth)
 
     // variable to store current move's score (from the static evaluation perspective)
     int score;
-
+    
+    // add
+    // best move (to store in TT)
+    int best_move = 0;
+    
     // define hash flag
     int hash_flag = hash_flag_alpha;
 
@@ -3887,16 +4102,11 @@ static inline int negamax(int alpha, int beta, int depth)
 
     // read hash entry if we're not in a root ply and hash entry is available
     // and current node is not a PV node
-    if (ply && (score = read_hash_entry(alpha, beta, depth)) != no_hash_entry && pv_node == 0)
-    {
+    if (ply && (score = read_hash_entry(alpha, beta, &best_move, depth)) != no_hash_entry && pv_node == 0)
         // if the move has already been searched (hence has a value)
         // we just return the score for this move without searching it
-#ifndef NDEBUG
-        // printf("found hash_entry, score : %d %d %d %d\n", alpha, beta, depth, score);
-#endif
         return score;
-    }
-
+        
     // every 2047 nodes
     if ((nodes & 2047) == 0)
         // "listen" to the GUI/user input
@@ -3916,16 +4126,33 @@ static inline int negamax(int alpha, int beta, int depth)
     nodes++;
 
     // is king in check
-    int in_check = is_square_attacked((side == white) ? get_ls1b_index(bitboards[K]) : get_ls1b_index(bitboards[k]),
-                                      side ^ 1);
-
+    int in_check = is_square_attacked((side == white) ? get_ls1b_index(bitboards[K]) : 
+                                                        get_ls1b_index(bitboards[k]),
+                                                        side ^ 1);
+    
     // increase search depth if the king has been exposed into a check
     if (in_check)
         depth++;
 
     // legal moves counter
     int legal_moves = 0;
-
+    
+    // add
+    // get static evaluation score
+	int static_eval = evaluate();
+    
+    // evaluation pruning / static null move pruning
+	if (depth < 3 && !pv_node && !in_check &&  abs(beta - 1) > -infinity + 100)
+	{   
+        // define evaluation margin
+		int eval_margin = 120 * depth;
+		
+		// evaluation margin substracted from static evaluation score fails high
+		if (static_eval - eval_margin >= beta)
+		    // evaluation margin substracted from static evaluation score
+			return static_eval - eval_margin;
+	}
+    
     // null move pruning
     if (depth >= 3 && in_check == 0 && ply)
     {
@@ -3979,7 +4206,47 @@ static inline int negamax(int alpha, int beta, int depth)
             // node (position) fails high
             return beta;
     }
-
+    
+    // add
+    // razoring 
+    if (!pv_node && !in_check && depth <= 3)
+    {
+        // get static eval and add first bonus
+        score = static_eval + 125;
+        
+        // define new score
+        int new_score;
+        
+        // static evaluation indicates a fail-low node
+        if (score < beta)
+        {
+            // on depth 1
+            if (depth == 1)
+            {
+                // get quiscence score
+                new_score = quiescence(alpha, beta);
+                
+                // return quiescence score if it's greater then static evaluation score
+                return (new_score > score) ? new_score : score;
+            }
+            
+            // add second bonus to static evaluation
+            score += 175;
+            
+            // static evaluation indicates a fail-low node
+            if (score < beta && depth <= 2)
+            {
+                // get quiscence score
+                new_score = quiescence(alpha, beta);
+                
+                // quiescence score indicates fail-low node
+                if (new_score < beta)
+                    // return quiescence score if it's greater then static evaluation score
+                    return (new_score > score) ? new_score : score;
+            }
+        }
+	}
+    
     // create move list instance
     moves_t move_list[1];
 
@@ -3992,8 +4259,8 @@ static inline int negamax(int alpha, int beta, int depth)
         enable_pv_scoring(move_list);
 
     // sort moves
-    sort_moves(move_list);
-
+    sort_moves(move_list, best_move);
+    
     // number of moves searched in a move list
     int moves_searched = 0;
 
@@ -4096,7 +4363,11 @@ static inline int negamax(int alpha, int beta, int depth)
             // switch hash flag from storing score for fail-low node
             // to the one storing score for PV node
             hash_flag = hash_flag_exact;
-
+            
+            // add
+            // store best move (for TT)
+            best_move = move_list->moves[count].move_score.bmove;
+        
             // on quiet moves
             if (get_move_capture(move_list->moves[count].move_score.bmove) == 0)
                 // store history moves
@@ -4119,9 +4390,10 @@ static inline int negamax(int alpha, int beta, int depth)
             // fail-hard beta cutoff
             if (score >= beta)
             {
+            	// add
                 // store hash entry with the score equal to beta
-                write_hash_entry(beta, depth, hash_flag_beta);
-
+                write_hash_entry(beta, best_move, depth, hash_flag_beta);
+            
                 // on quiet moves
                 if (get_move_capture(move_list->moves[count].move_score.bmove) == 0)
                 {
@@ -4144,13 +4416,14 @@ static inline int negamax(int alpha, int beta, int depth)
             // return mating score (assuming closest distance to mating position)
             return -mate_value + ply;
         // king is not in check
-        // return stalemate score
-        return 0;
+        else
+            // return stalemate score
+            return 0;
     }
 
     // store hash entry with the score equal to alpha
-    write_hash_entry(alpha, depth, hash_flag);
-
+    write_hash_entry(alpha, best_move, depth, hash_flag);
+    
     // node (position) fails low
     return alpha;
 }
@@ -4446,10 +4719,10 @@ int move_counter[2];
 moves_t gui_move_list[1];
 
 // bits are set when a piece on the square can move
-u_int64_t move_options[1];
+U64 move_options[1];
 
 // bits are set when the piece move to the square
-u_int64_t piece_options[64];
+U64 piece_options[64];
 
 // color from the ai player
 int ai_player;
@@ -4491,7 +4764,7 @@ static int task_ready;
 // check for draw by repetition
 
 // hashkey after every move
-u_int64_t game_hashkey[1000];
+U64 game_hashkey[1000];
 
 // index of the array
 int game_hashkey_index;
@@ -4522,7 +4795,7 @@ void fill_clocktime(int col)
 }
 
 // fill the options left board only used for the human player
-void fillOptions(moves_t *move_list, u_int64_t *move_options, u_int64_t *piece_options)
+void fillOptions(moves_t *move_list, U64 *move_options, U64 *piece_options)
 {
     // reset move options
     memset(move_options, 0ULL, 8);
