@@ -318,59 +318,6 @@ char promoted_pieces[] = {
     [b] = 'b',
     [n] = 'n'};
 
-// string tools
-
-// integer to string
-void intToStr(int N, char *str)
-{
-    int i = 0;
-
-    // Save the copy of the number for sign
-    int sign = N;
-
-    // If the number is negative, make it positive
-    if (N < 0)
-        N = -N;
-
-    // Extract digits from the number and add them to the
-    // string
-    while (N > 0)
-    {
-
-        // Convert integer digit to character and store
-        // it in the str
-        str[i++] = N % 10 + '0';
-        N /= 10;
-    }
-
-    // If the number was negative, add a minus sign to the
-    // string
-    if (sign < 0)
-    {
-        str[i++] = '-';
-    }
-
-    // Null-terminate the string
-    str[i] = '\0';
-
-    // Reverse the string to get the correct order
-    for (int j = 0, k = i - 1; j < k; j++, k--)
-    {
-        char temp = str[j];
-        str[j] = str[k];
-        str[k] = temp;
-    }
-}
-
-// concatenate 2 strings
-char *concat(const char *s1, const char *s2)
-{
-    char *result = malloc(strlen(s1) + strlen(s2) + 1); // +1 for the null-terminator
-    strcpy(result, s1);
-    strcat(result, s2);
-    return result;
-}
-
 /**********************************\
  ==================================
 
@@ -3629,6 +3576,12 @@ int pv_table[max_ply][max_ply];
 // follow PV & score PV move
 int follow_pv, score_pv;
 
+// full depth moves counter
+const int full_depth_moves = 4;
+
+// depth limit to consider reduction
+const int reduction_limit = 3;
+
 /**********************************\
  ==================================
 
@@ -4069,12 +4022,6 @@ static inline int quiescence(int alpha, int beta)
     // node (position) fails low
     return alpha;
 }
-
-// full depth moves counter
-const int full_depth_moves = 4;
-
-// depth limit to consider reduction
-const int reduction_limit = 3;
 
 // negamax alpha beta search
 static inline int negamax(int alpha, int beta, int depth)
@@ -4671,12 +4618,6 @@ const char *x_co[8] = {"a", "b", "c", "d", "e", "f", "g", "h"};
 const char *y_co[8] = {"8", "7", "6", "5", "4", "3", "2", "1"};
 const char *number[10] = {"0", "1", "2", "3", "4", "5", "6", "7", "8", "9"};
 
-// -----------------------------------------------------------------------
-// boards
-// left board, prefix
-// right board, prefix rb_
-// -----------------------------------------------------------------------
-
 // variables
 
 // start column board
@@ -4779,6 +4720,59 @@ int game_time_choice;
 int game_plustime_choice;
 
 // methods
+
+// string tools
+
+// integer to string
+void intToStr(int N, char *str)
+{
+    int i = 0;
+
+    // Save the copy of the number for sign
+    int sign = N;
+
+    // If the number is negative, make it positive
+    if (N < 0)
+        N = -N;
+
+    // Extract digits from the number and add them to the
+    // string
+    while (N > 0)
+    {
+
+        // Convert integer digit to character and store
+        // it in the str
+        str[i++] = N % 10 + '0';
+        N /= 10;
+    }
+
+    // If the number was negative, add a minus sign to the
+    // string
+    if (sign < 0)
+    {
+        str[i++] = '-';
+    }
+
+    // Null-terminate the string
+    str[i] = '\0';
+
+    // Reverse the string to get the correct order
+    for (int j = 0, k = i - 1; j < k; j++, k--)
+    {
+        char temp = str[j];
+        str[j] = str[k];
+        str[k] = temp;
+    }
+}
+
+// concatenate 2 strings
+char *concat(const char *s1, const char *s2)
+{
+    char *result = malloc(strlen(s1) + strlen(s2) + 1); // +1 for the null-terminator
+    strcpy(result, s1);
+    strcat(result, s2);
+    return result;
+}
 
 // Fill the time for on the chessclock
 void fill_clocktime(int col)
