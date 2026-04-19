@@ -531,7 +531,7 @@ static void communicate()
 // pseudo random number state
 U32 random_state = 1804289383;
 
-// generate 32-bit pseudo legal numbers
+// generate 32-bit pseudo random numbers
 U32 get_random_U32_number()
 {
     // get current state
@@ -549,7 +549,7 @@ U32 get_random_U32_number()
     return number;
 }
 
-// generate 64-bit pseudo legal numbers
+// generate 64-bit pseudo random numbers
 U64 get_random_U64_number()
 {
     // define 4 random numbers
@@ -583,6 +583,7 @@ U64 generate_magic_number()
 #define set_bit(bitboard, square) ((bitboard) |= (1ULL << (square)))
 #define get_bit(bitboard, square) ((bitboard) & (1ULL << (square)))
 #define pop_bit(bitboard, square) ((bitboard) &= ~(1ULL << (square)))
+
 // count bits within a bitboard (Brian Kernighan's way)
 static inline int count_bits(U64 bitboard)
 {
@@ -766,7 +767,7 @@ void print_board()
     // loop over board ranks
     for (int rank = 0; rank < 8; rank++)
     {
-        // loop ober board files
+        // loop over board files
         for (int file = 0; file < 8; file++)
         {
             // init square
@@ -913,7 +914,7 @@ void parse_fen(char *fen)
         }
     }
 
-    // got to parsing side to move (increment pointer to FEN string)
+    // go to parsing side to move (increment pointer to FEN string)
     fen++;
 
     // parse side to move
@@ -947,7 +948,7 @@ void parse_fen(char *fen)
         fen++;
     }
 
-    // got to parsing enpassant square (increment pointer to FEN string)
+    // go to parsing enpassant square (increment pointer to FEN string)
     fen++;
 
     // parse enpassant square
@@ -979,7 +980,7 @@ void parse_fen(char *fen)
 
     // loop over black pieces bitboards
     for (int piece = p; piece <= k; piece++)
-        // populate white occupancy bitboard
+        // populate black occupancy bitboard
         occupancies[black] |= bitboards[piece];
 
     // init all occupancies
@@ -1201,7 +1202,7 @@ U64 rook_masks[64];
 // bishop attacks table [square][occupancies]
 U64 bishop_attacks[64][512];
 
-// rook attacks rable [square][occupancies]
+// rook attacks table [square][occupancies]
 U64 rook_attacks[64][4096];
 
 // generate pawn attacks
@@ -1729,7 +1730,7 @@ static inline int is_square_attacked(int square, int side)
     if (get_rook_attacks(square, occupancies[both]) & ((side == white) ? bitboards[R] : bitboards[r]))
         return 1;
 
-    // attacked by bishops
+    // attacked by queens
     if (get_queen_attacks(square, occupancies[both]) & ((side == white) ? bitboards[Q] : bitboards[q]))
         return 1;
 
@@ -1847,7 +1848,7 @@ static inline void add_move(moves_t *move_list, int move)
 {
     if (move_list->count < 255)
     {
-        // strore move
+        // store move
         move_list->moves[move_list->count].move_score.bmove = move;
         move_list->moves[move_list->count].move_score.score = 0;
 
@@ -2313,7 +2314,7 @@ static inline void generate_moves(moves_t *move_list)
                         }
 
                         else
-                            // one square ahead pawn move
+                            // pawn capture
                             add_move(move_list, encode_move(source_square, target_square, piece, 0, 1, 0, 0, 0));
 
                         // pop ls1b of the pawn attacks
@@ -2375,7 +2376,7 @@ static inline void generate_moves(moves_t *move_list)
             // pick up black pawn bitboards index
             if (piece == p)
             {
-                // loop over white pawns within white pawn bitboard
+                // loop over black pawns within black pawn bitboard
                 while (bitboard)
                 {
                     // init source square
@@ -2426,7 +2427,7 @@ static inline void generate_moves(moves_t *move_list)
                         }
 
                         else
-                            // one square ahead pawn move
+                            // pawn capture
                             add_move(move_list, encode_move(source_square, target_square, piece, 0, 1, 0, 0, 0));
 
                         // pop ls1b of the pawn attacks
@@ -3164,7 +3165,7 @@ static inline int get_game_phase_score()
     for (int piece = N; piece <= Q; piece++)
         white_piece_scores += count_bits(bitboards[piece]) * material_score[opening][piece];
 
-    // loop over white pieces
+    // loop over black pieces
     for (int piece = n; piece <= q; piece++)
         black_piece_scores += count_bits(bitboards[piece]) * -material_score[opening][piece];
 
@@ -3289,10 +3290,10 @@ static inline int evaluate()
                     score_endgame += semi_open_file_score;
                 }
 
-                // semi open file
+                // open file
                 if (((bitboards[P] | bitboards[p]) & file_masks[square]) == 0)
                 {
-                    // add semi open file bonus
+                    // add open file bonus
                     score_opening += open_file_score;
                     score_endgame += open_file_score;
                 }
@@ -3324,10 +3325,10 @@ static inline int evaluate()
                     score_endgame -= semi_open_file_score;
                 }
 
-                // semi open file
+                // open file
                 if (((bitboards[P] | bitboards[p]) & file_masks[square]) == 0)
                 {
-                    // add semi open file penalty
+                    // add open file penalty
                     score_opening -= open_file_score;
                     score_endgame -= open_file_score;
                 }
@@ -3404,10 +3405,10 @@ static inline int evaluate()
                     score_endgame -= semi_open_file_score;
                 }
 
-                // semi open file
+                // open file
                 if (((bitboards[P] | bitboards[p]) & file_masks[square]) == 0)
                 {
-                    // add semi open file bonus
+                    // add open file bonus
                     score_opening -= open_file_score;
                     score_endgame -= open_file_score;
                 }
@@ -3439,10 +3440,10 @@ static inline int evaluate()
                     score_endgame += semi_open_file_score;
                 }
 
-                // semi open file
+                // open file
                 if (((bitboards[P] | bitboards[p]) & file_masks[square]) == 0)
                 {
-                    // add semi open file penalty
+                    // add open file penalty
                     score_opening += open_file_score;
                     score_endgame += open_file_score;
                 }
@@ -3608,7 +3609,7 @@ typedef struct {
     int depth;      // current search depth
     int flag;       // flag the type of node (fail-low/fail-high/PV) 
     int score;      // score (alpha/beta/PV)
-    int best_move;  // best move found // add
+    int best_move;  // best move found 
 } tt;               // transposition table (TT aka hash table)
 
 // define TT instance
@@ -3676,7 +3677,7 @@ void init_hash_table(int mb)
     }
 }
 
-// add
+// add best_move
 // read hash entry data
 static inline int read_hash_entry(int alpha, int beta, int* best_move, int depth)
 {
@@ -3726,7 +3727,7 @@ static inline int read_hash_entry(int alpha, int beta, int* best_move, int depth
     return no_hash_entry;
 }
 
-// add
+// add best_move
 // write hash entry data
 static inline void write_hash_entry(int score, int best_move, int depth, int hash_flag)
 {
@@ -3857,7 +3858,7 @@ static inline int score_move(int move)
     return 0;
 }
 
-// add
+// add best_move
 // sort moves in descending order
 static inline int sort_moves(moves_t *move_list, int best_move)
 {
