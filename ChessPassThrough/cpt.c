@@ -4980,7 +4980,7 @@ static inline void rb_generate_moves(moves_t *move_list)
     // add put moves for captures pieces
     for (int i = 0; i < 5; ++i)
     {
-        int piece = rb_rank[lb_side][i];
+        int piece = rb_rank[rb_side][i];
         if (rb_cappieces[piece] > 0)
         {
             // make put moves only for the side to move
@@ -8036,7 +8036,7 @@ void rb_search_position(int depth)
 {
 #ifndef NDEBUG // print only in debug mode
     // print offset
-    printf("\nlb\n");
+    printf("\nrb\n");
 #endif
 
     // search start time
@@ -8556,7 +8556,7 @@ void lb_fillOptions(moves_t *move_list, U64 *move_options, U64 *piece_options, U
 
     // generate moves
     lb_generate_moves(move_list);
-#ifndef NDEBUG§
+#ifndef NDEBUG
     lb_print_move_list(move_list);
 #endif
 
@@ -8601,7 +8601,7 @@ void rb_fillOptions(moves_t *move_list, U64 *move_options, U64 *piece_options, U
 
     // generate moves
     rb_generate_moves(move_list);
-#ifndef NDEBUG§
+#ifndef NDEBUG
     rb_print_move_list(move_list);
 #endif
     for (int index = 0; index < move_list->count; ++index)
@@ -9831,7 +9831,7 @@ void rb_setup_game()
     rb_clear_hash_table();
     // fill the options bitboards used in the gui for both boards because the color choice is not known yet
     rb_fillOptions(rb_gui_move_list, rb_move_options, rb_piece_options, rb_cap_piece_options);
-    rb_game_hashkey[rb_game_hashkey_index++] = lb_hash_key;
+    rb_game_hashkey[rb_game_hashkey_index++] = rb_hash_key;
     // initial set up of the draw board
     for (int i = 0; i < 64; ++i)
         rb_drawboard[i] = rb_getPiece(i);
@@ -9842,52 +9842,51 @@ void rb_setup_game()
 // integer to string
 void intToStr(int N, char *str)
 {
+    if (!str) return;
+    long long n = N; // voorkomt overflow bij INT_MIN
+
     int i = 0;
 
-    // Save the copy of the number for sign
-    int sign = N;
-
-    // If the number is negative, make it positive
-    if (N < 0)
-        N = -N;
-
-    // Extract digits from the number and add them to the
-    // string
-    while (N > 0)
+    if (n == 0)
     {
-
-        // Convert integer digit to character and store
-        // it in the str
-        str[i++] = N % 10 + '0';
-        N /= 10;
+        str[0] = '0';
+        str[1] = '\0';
+        return;
     }
 
-    // If the number was negative, add a minus sign to the
-    // string
-    if (sign < 0)
+    int neg = (n < 0);
+    if (neg) n = -n;
+
+    while (n > 0)
     {
-        str[i++] = '-';
+        str[i++] = (char)('0' + (n % 10));
+        n /= 10;
     }
 
-    // Null-terminate the string
+    if (neg) str[i++] = '-';
     str[i] = '\0';
 
-    // Reverse the string to get the correct order
-    for (int j = 0, k = i - 1; j < k; j++, k--)
+    for (int j = 0, k = i - 1; j < k; ++j, --k)
     {
-        char temp = str[j];
+        char t = str[j];
         str[j] = str[k];
-        str[k] = temp;
+        str[k] = t;
     }
 }
 
 // concatenate 2 strings
 char *concat(const char *s1, const char *s2)
 {
-    char *result = malloc(strlen(s1) + strlen(s2) + 1); // +1 for the null-terminator
-    strcpy(result, s1);
-    strcat(result, s2);
-    return result;
+    enum { CONCAT_SLOTS = 128, CONCAT_BUF_SIZE = 256 };
+    static char buffers[CONCAT_SLOTS][CONCAT_BUF_SIZE];
+    static unsigned int slot = 0;
+
+    char *out = buffers[slot++ % CONCAT_SLOTS];
+    if (!s1) s1 = "";
+    if (!s2) s2 = "";
+
+    snprintf(out, CONCAT_BUF_SIZE, "%s%s", s1, s2);
+    return out;
 }
 
 // Start program
@@ -10060,8 +10059,8 @@ int main()
                 YELLOW);
             // time choice
             DrawTexture(choice, SQUARE_SIZE * 5, SQUARE_SIZE * 9, RAYWHITE);
-            char *minstr = malloc(sizeof(char) * 4);
-            intToStr(game_time, minstr);
+            char minstr[16] = {0}; // was: malloc
+            intToStr(game_time, minstr);    
             char *text = concat("Bedenktijd :", minstr);
             char *text1 = concat(text, " min (5..30)");
             DrawText(
@@ -10070,8 +10069,7 @@ int main()
                 SQUARE_SIZE * 10 + HALF_SQUARE_SIZE,
                 20,
                 YELLOW);
-            free(minstr);
-            char *plusstr = malloc(sizeof(char) * 4);
+            char plusstr[16] = {0}; // was: malloc
             intToStr(game_plus, plusstr);
             char *text2 = concat("Per zet :", plusstr);
             char *text3 = concat(text2, " sec (0..15)");
@@ -10083,7 +10081,6 @@ int main()
                 SQUARE_SIZE * 11 + HALF_SQUARE_SIZE,
                 20,
                 YELLOW);
-            free(plusstr);
             DrawTexture(plusminbtn, SQUARE_SIZE * 5, SQUARE_SIZE * 11, RAYWHITE);
             // enter button
             DrawTexture(enterbtn, SQUARE_SIZE * 9, SQUARE_SIZE * 11, RAYWHITE);
