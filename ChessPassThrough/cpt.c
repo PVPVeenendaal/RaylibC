@@ -33,7 +33,11 @@
 \**********************************/
 
 // system headers
+#ifdef _WIN64
 #include "raylib.h"
+#else
+#include "/opt/homebrew/Cellar/raylib/5.5/include/raylib.h"
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
