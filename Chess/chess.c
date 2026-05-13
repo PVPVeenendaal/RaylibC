@@ -1773,6 +1773,7 @@ void print_attacked_squares(int side)
 #define get_move_castling(move) ((move) & 0x800000)
 
 #define MOVELIST_SIZE 256
+
 typedef union
 {
     struct
@@ -1807,7 +1808,7 @@ static inline void add_move(moves_t *move_list, int move)
         move_list->count++;
     }
     else
-        PrintAssert(move_list->count < MOVELIST_SIZE);
+        PrintAssert(move_list->count < MOVELIST_SIZE - 1);
 }
 
 // print move (for UCI purposes)
@@ -3716,8 +3717,14 @@ static inline int sort_moves(moves_t *move_list, int best_move)
 {
     // score all the moves within a move list
     for (int count = 0; count < move_list->count; count++)
-        // score move
-        move_list->moves[count].move_score.score = score_move(move_list->moves[count].move_score.bmove);
+    {
+    	// best move
+    	if (best_move == move_list->moves[count].move_score.bmove)
+    		move_list->moves[count].move_score.score = 30000;
+		else
+        	// score move
+        	move_list->moves[count].move_score.score = score_move(move_list->moves[count].move_score.bmove);
+    }
 
     // loop over current move within a move list
     for (int current_move = 0; current_move < move_list->count; current_move++)
@@ -3729,9 +3736,9 @@ static inline int sort_moves(moves_t *move_list, int best_move)
             if (move_list->moves[current_move].move_score.score < move_list->moves[next_move].move_score.score)
             {
                 // swap moves
-                move_t temp_move = move_list->moves[current_move];
-                move_list->moves[current_move] = move_list->moves[next_move];
-                move_list->moves[next_move] = temp_move;
+                S64 temp_move = move_list->moves[current_move].u;
+                move_list->moves[current_move].u = move_list->moves[next_move].u;
+                move_list->moves[next_move].u = temp_move;
             }
         }
     }
@@ -4477,7 +4484,7 @@ int promotionmove; // = -1;
 // current game state
 int gamestate; // = StartGame;
 
-// reason the gam ends
+// reason the game ends
 int game_end; // = 0;
 
 // last move played by white or black
@@ -4523,6 +4530,12 @@ int thinktimer[2];
 
 // preventing flashing on the clocks during thinking of a move by the AI
 int side2move;
+// variables for multi threading
+// thread to run
+pthread_t thread;
+
+// flag that indicates if the thread is ready
+static int task_ready;
 
 // check for draw by repetition
 
@@ -4541,6 +4554,8 @@ int game_time_choice;
 // Plus time choice
 int game_plustime_choice;
 
+// methods
+
 // add hashkey to the array for repetition detection
 static inline void add_to_game_hashkey()
 {
@@ -4554,6 +4569,7 @@ static inline void add_to_game_hashkey()
     game_hashkey_index++;
 }
 
+// init gui data
 void init_gui_data()
 {
     // IMAGES ARE LOADED IN THE MAIN FUNCTION AFTER INITIALIZATION OF RAYLIB
@@ -4589,14 +4605,7 @@ void init_gui_data()
     side2move = 0;
 }
 
-// variables for multi threading
-// thread to run
-pthread_t thread;
 
-// flag that indicates if the thread is ready
-static int task_ready;
-
-// methods
 
 // string tools
 
@@ -4944,7 +4953,7 @@ void game_end_check()
             {
                 gamestate = StopGame;
                 game_end = DrawRep;
-                break;
+                return;
             }
         }
 
@@ -4972,16 +4981,15 @@ void game_end_check()
         else if (total_pieces[black] == 3 && (count_pieces[n] == 2))
             draw = 1;
     }
-    else if (total_pieces[white] == 2 && (count_pieces[N] == 1 || count_pieces[B] == 1))
-    {
-        if (total_pieces[black] == 1)
+    if (total_pieces[black] == 1)
+	{
+    	if (total_pieces[white] == 1)
             draw = 1;
-        else if (total_pieces[black] == 2 && (count_pieces[n] == 1 || count_pieces[b] == 1))
+        else if (total_pieces[white] == 2 && (count_pieces[N] == 1 || count_pieces[B] == 1))
             draw = 1;
-    }
-    else if (total_pieces[white] == 3 && count_pieces[N] == 2 && total_pieces[black] == 1)
-        draw = 1;
-
+        else if (total_pieces[white] == 3 && (count_pieces[N] == 2))
+            draw = 1;
+	}
     if (draw)
     {
         gamestate = StopGame;

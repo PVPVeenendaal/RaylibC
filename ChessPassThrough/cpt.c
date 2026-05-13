@@ -1,14 +1,14 @@
 /**********************************\
  ==================================
 
-    GUI CHESS PASSTHROUGH
+    GUI CHESS PASSTHROUGH IN C
+	WITH BITBOARDS
 
-            by
+            	by
 
         Peter Veenendaal
 
     USING ENGINE CODE FROM :
-
     BITBOARD CHESS ENGINE v1.2
 
                 by
@@ -23,13 +23,13 @@
     FOR THE LEFT BOARD ALL FUNCTIONS AND VARIABLES HAVE THE PREFIX lb_
     FOR THE RIGHT BOARD ALL FUNCTIONS AND VARIABLES HAVE THE PREFIX rb_
 
-    ADDING CODE FOR THE PASSTHOUGH AND ASSERT TAGS BETWEEN ///<ADD> and ///</ADD>
-
+    ADDING CODE FOR THE PASSTHOUGH AND ASSERT 
     
-    by        Peter Veenendaal
+    			by        
+    			
+    	Peter Veenendaal
 
  ==================================
-
 \**********************************/
 
 // system headers
@@ -41,12 +41,11 @@
 #include <sys/time.h>
 #include <pthread.h>
 
-///< ADD>
-
 // define min max
 #define Max(a, b) ((a) >= (b) ? (a) : (b))
 #define Min(a, b) ((a) <= (b) ? (a) : (b))
 
+// assertion macro
 #ifdef NDEBUG // release mode
 
 #define PrintAssert(ignore) (void *)0
@@ -60,14 +59,17 @@
                "Assertion is not true:", #expr, \
                "in file ", __FILE__,            \
                "on line ", __LINE__);           \
+        if (pfnExit != NULL)                    \
+            pfnExit();                          \
+        exit(1);                                \
     }
 #endif
 
-///</ADD>
+void (*pfnInit)(void);
+void (*pfnExit)(void);
 
 // -----------------------------------------------------------------------
-// BBC code
-// @author Code Monkey King
+// Engine code forked from BITBOARD CHESS ENGINE v1.2 by Code Monkey King
 // -----------------------------------------------------------------------
 
 // define version BBC
@@ -76,158 +78,14 @@
 // define bitboard data type
 #define U64 unsigned long long
 
-// FEN dedug positions
-#define empty_board "8/8/8/8/8/8/8/8 b - - "
+// singed long long
+#define S64 long long
+
+// define unsigned integer
+#define U32 unsigned int
+
+// FEN start posiion
 #define start_position "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1 "
-#define tricky_position "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1 "
-#define killer_position "rnbqkb1r/pp1p1pPp/8/2p1pP2/1P1P4/3P3P/P1P1P3/RNBQKBNR w KQkq e6 0 1"
-#define cmk_position "r2q1rk1/ppp2ppp/2n1bn2/2b1p3/3pP3/3P1NPP/PPP1NPB1/R1BQ1RK1 b - - 0 9 "
-#define repetitions "2r3k1/R7/8/1R6/8/8/P4KPP/8 w - - 0 40 "
-
-// set/get/pop bit macros
-#define set_bit(bitboard, square) ((bitboard) |= (1ULL << (square)))
-#define get_bit(bitboard, square) ((bitboard) & (1ULL << (square)))
-#define pop_bit(bitboard, square) ((bitboard) &= ~(1ULL << (square)))
-
-///< ADD>
-/*
-  8  1 1 1 1 1 1 1 1
-  7  1 1 1 1 1 1 1 1
-  6  1 1 1 1 1 1 1 1
-  5  1 1 1 1 1 1 1 1
-  4  1 1 1 1 1 1 1 1
-  3  1 1 1 1 1 1 1 1
-  2  1 1 1 1 1 1 1 1
-  1  1 1 1 1 1 1 1 1
-
-     a b c d e f g h
-
-     Bitboard: 18446744073709551615
-*/
-
-#define piece_put_options 18446744073709551615ULL
-
-/*
-  8  0 0 0 0 0 0 0 0
-  7  1 1 1 1 1 1 1 1
-  6  1 1 1 1 1 1 1 1
-  5  1 1 1 1 1 1 1 1
-  4  1 1 1 1 1 1 1 1
-  3  1 1 1 1 1 1 1 1
-  2  1 1 1 1 1 1 1 1
-  1  0 0 0 0 0 0 0 0
-
-     a b c d e f g h
-
-    Bitboard: 72057594037927680d
-*/
-
-#define pawn_put_options 72057594037927680ULL
-///</ADD>
-
-/*
-To generate put options:
-for the pawn: bitboard option = ~occupancies[both] & pawn_put_options
-for the knight, bishop, rook or queen: bitboard option = ~occupancies[both] & piece_options
-*/
-
-/*
-          binary move bits                               hexidecimal constants
-
-    0000 0000 0000 0000 0011 1111    source square       0x3f
-    0000 0000 0000 1111 1100 0000    target square       0xfc0
-    0000 0000 1111 0000 0000 0000    piece               0xf000
-    0000 1111 0000 0000 0000 0000    promoted piece      0xf0000
-    0001 0000 0000 0000 0000 0000    capture flag        0x100000
-    0010 0000 0000 0000 0000 0000    double push flag    0x200000
-    0100 0000 0000 0000 0000 0000    enpassant flag      0x400000
-    1000 0000 0000 0000 0000 0000    castling flag       0x800000
-*/
-
-///< ADD>
-/*
-    a put option move: source and target are the same,
-    piece is pawn, knight, bishop, rook or queen,
-    no flags are set
-*/
-///</ADD>
-
-// encode move
-#define encode_move(source, target, piece, promoted, capture, double, enpassant, castling) \
-    (source) |                                                                             \
-        ((target) << 6) |                                                                  \
-        ((piece) << 12) |                                                                  \
-        ((promoted) << 16) |                                                               \
-        ((capture) << 20) |                                                                \
-        ((double) << 21) |                                                                 \
-        ((enpassant) << 22) |                                                              \
-        ((castling) << 23)
-
-// extract source square
-#define get_move_source(move) ((move) & 0x3f)
-
-// extract target square
-#define get_move_target(move) (((move) & 0xfc0) >> 6)
-
-// extract piece
-#define get_move_piece(move) (((move) & 0xf000) >> 12)
-
-// extract promoted piece
-#define get_move_promoted(move) (((move) & 0xf0000) >> 16)
-
-// extract capture flag
-#define get_move_capture(move) ((move) & 0x100000)
-
-// extract double pawn push flag
-#define get_move_double(move) ((move) & 0x200000)
-
-// extract enpassant flag
-#define get_move_enpassant(move) ((move) & 0x400000)
-
-// extract castling flag
-#define get_move_castling(move) ((move) & 0x800000)
-
-// move list structure
-#define MOVELIST_SIZE 384
-
-typedef struct
-{
-    // moves
-    int moves[MOVELIST_SIZE];
-
-    // move count
-    int count;
-
-} moves_t;
-
-/*
-     These are the score bounds for the range of the mating scores
-   [-infinity, -mate_value ... -mate_score, ... score ... mate_score ... mate_value, infinity]
-*/
-
-#define infinity 50000
-#define mate_value 49000
-#define mate_score 48000
-
-// no hash entry found constant
-#define no_hash_entry 100000
-
-// transposition table hash flags
-#define hash_flag_exact 0
-#define hash_flag_alpha 1
-#define hash_flag_beta 2
-
-// transposition table data structure
-typedef struct
-{
-    U64 hash_key; // "almost" unique chess position identifier
-    int depth;    // current search depth
-    int flag;     // flag the type of node (fail-low/fail-high/PV)
-    int score;    // score (alpha/beta/PV)
-} tt;             // transposition table (TT aka hash table)
-
-// max ply that we can reach within a search
-#define max_ply 64
 
 // board squares
 enum
@@ -332,6 +190,22 @@ enum
 };
 
 // castling rights binary encoding
+/*
+
+    bin  dec
+
+   0001    1  white king can castle to the king side
+   0010    2  white king can castle to the queen side
+   0100    4  black king can castle to the king side
+   1000    8  black king can castle to the queen side
+
+   examples
+
+   1111       both sides an castle both directions
+   1001       black king => queen side
+              white king => king side
+
+*/
 enum
 {
     wk = 1,
@@ -664,6 +538,8 @@ char rb_promoted_pieces[] = {
 
 */
 
+#define REPETITION_TABLE_SIZE 1024
+
 // piece bitboards
 U64 lb_bitboards[12];
 U64 rb_bitboards[12];
@@ -690,8 +566,8 @@ U64 rb_hash_key;
 
 // positions repetition table
 // 1000 is a number of plies (500 moves) in the entire game
-U64 lb_repetition_table[1000];
-U64 rb_repetition_table[1000];
+U64 lb_repetition_table[REPETITION_TABLE_SIZE];
+U64 rb_repetition_table[REPETITION_TABLE_SIZE];
 
 // repetition index
 int lb_repetition_index;
@@ -700,12 +576,15 @@ int rb_repetition_index;
 // half move counter
 int lb_ply;
 int rb_ply;
+// nodes searched in the current search
+U64 lb_nodes;
+U64 rb_nodes;
 
+// add
 // fifty move rule counter
 int lb_fifty;
 int rb_fifty;
 
-///< ADD>
 // passthrough varibales
 
 // captured pieces from the other board [white + black]
@@ -736,7 +615,54 @@ int rb_stop_game_flag;
 // flag that indicates if the thread (calculating an AI move) is busy
 int lb_thread_busy;
 int rb_thread_busy;
-///</ADD>
+
+// add current position hash key to the repetition table
+// left board
+static inline void lb_add_to_repetition_table()
+{
+    PrintAssert(lb_repetition_index < REPETITION_TABLE_SIZE); // make sure we don't exceed the repetition table size
+    
+    // add current position hash key to the repetition table
+    lb_repetition_table[lb_repetition_index] = lb_hash_key;
+
+    // increment repetition index
+    lb_repetition_index++;
+}
+// right board
+static inline void rb_add_to_repetition_table()
+{
+    PrintAssert(rb_repetition_index < REPETITION_TABLE_SIZE); // make sure we don't exceed the repetition table size
+    
+    // add current position hash key to the repetition table
+    rb_repetition_table[rb_repetition_index] = rb_hash_key;
+
+    // increment repetition index
+    rb_repetition_index++;
+}
+
+// remove current position hash key from the repetition table
+// left board
+static inline void lb_remove_from_repetition_table()
+{
+    PrintAssert(lb_repetition_index > 0); // make sure we don't go below 0 index
+    
+    // decrement repetition index
+    lb_repetition_index--;
+
+    // remove current position hash key from the repetition table
+    lb_repetition_table[lb_repetition_index] = 0ULL;
+}
+// right board
+static inline void rb_remove_from_repetition_table()
+{
+    PrintAssert(rb_repetition_index > 0); // make sure we don't go below 0 index
+    
+    // decrement repetition index
+    rb_repetition_index--;
+
+    // remove current position hash key from the repetition table
+    rb_repetition_table[rb_repetition_index] = 0ULL;
+}
 
 /**********************************\
  ==================================
@@ -793,14 +719,14 @@ int rb_stopped = 0;
 \**********************************/
 
 // get time in milliseconds 
-// leftboard
+// left board
 int lb_get_time_ms()
 {
     struct timeval time_value;
     gettimeofday(&time_value, NULL);
     return time_value.tv_sec * 1000 + time_value.tv_usec / 1000;
 }
-// rightboard
+// right board
 int rb_get_time_ms()
 {
     struct timeval time_value;
@@ -809,39 +735,19 @@ int rb_get_time_ms()
 }
 
 // a bridge function to interact between search and GUI input
-// leftboard
+// left board
 static void lb_communicate()
 {
-    // if time is up break here
-    ///< ADD> or if the gui is stopped
-    if ((lb_timeset == 1 && lb_get_time_ms() > lb_stoptime) || lb_stop_game_flag) ///</ADD>
-    {
+    if ((lb_timeset == 1 && lb_get_time_ms() > lb_stoptime) || lb_stop_game_flag) 
         // tell engine to stop calculating
         lb_stopped = 1;
-    }
-
-    // not used
-    /*
-    // read GUI input
-    lb_read_input();
-    */
 }
-// rightboard
+// right board
 static void rb_communicate()
 {
-    // if time is up break here
-    ///< ADD> or if the gui is stopped
-    if ((rb_timeset == 1 && rb_get_time_ms() > rb_stoptime) || rb_stop_game_flag) ///</ADD>
-    {
+    if ((rb_timeset == 1 && rb_get_time_ms() > rb_stoptime) || rb_stop_game_flag) 
         // tell engine to stop calculating
         rb_stopped = 1;
-    }
-
-    // not used
-    /*
-    // read GUI input
-    // rb_read_input();
-    */
 }
 
 /**********************************\
@@ -853,15 +759,15 @@ static void rb_communicate()
 \**********************************/
 
 // pseudo random number state
-unsigned int lb_random_state = 1804289383;
-unsigned int rb_random_state = 1804289383;
+U32 lb_random_state = 1804289383;
+U32 rb_random_state = 1804289383;
 
 // generate 32-bit pseudo legal numbers 
-// leftboard
-unsigned int lb_get_random_U32_number()
+// left board
+U32 lb_get_random_U32_number()
 {
     // get current state
-    unsigned int number = lb_random_state;
+    U32 number = lb_random_state;
 
     // XOR shift algorithm
     number ^= number << 13;
@@ -874,11 +780,11 @@ unsigned int lb_get_random_U32_number()
     // return random number
     return number;
 }
-// rightboard
-unsigned int rb_get_random_U32_number()
+// right board
+U32 rb_get_random_U32_number()
 {
     // get current state
-    unsigned int number = rb_random_state;
+    U32 number = rb_random_state;
 
     // XOR shift algorithm
     number ^= number << 13;
@@ -893,7 +799,7 @@ unsigned int rb_get_random_U32_number()
 }
 
 // generate 64-bit pseudo legal numbers 
-// leftboard
+// left board
 U64 lb_get_random_U64_number()
 {
     // define 4 random numbers
@@ -908,7 +814,7 @@ U64 lb_get_random_U64_number()
     // return random number
     return n1 | (n2 << 16) | (n3 << 32) | (n4 << 48);
 }
-// rightboard
+// right board
 U64 rb_get_random_U64_number()
 {
     // define 4 random numbers
@@ -925,12 +831,12 @@ U64 rb_get_random_U64_number()
 }
 
 // generate magic number candidate
-// leftboard
+// left board
 U64 lb_generate_magic_number()
 {
     return lb_get_random_U64_number() & lb_get_random_U64_number() & lb_get_random_U64_number();
 }
-// rightboard
+// right board
 U64 rb_generate_magic_number()
 {
     return rb_get_random_U64_number() & rb_get_random_U64_number() & rb_get_random_U64_number();
@@ -944,8 +850,13 @@ U64 rb_generate_magic_number()
  ==================================
 \**********************************/
 
+// set/get/pop bit macros
+#define set_bit(bitboard, square) ((bitboard) |= (1ULL << (square)))
+#define get_bit(bitboard, square) ((bitboard) & (1ULL << (square)))
+#define pop_bit(bitboard, square) ((bitboard) &= ~(1ULL << (square)))
+
 // count bits within a bitboard (Brian Kernighan's way)
-// leftboard
+// left board
 static inline int lb_count_bits(U64 bitboard)
 {
     // bit counter
@@ -964,7 +875,7 @@ static inline int lb_count_bits(U64 bitboard)
     // return bit count
     return count;
 }
-// rightboard
+// right board
 static inline int rb_count_bits(U64 bitboard)
 {
     // bit counter
@@ -985,7 +896,7 @@ static inline int rb_count_bits(U64 bitboard)
 }
 
 // get least significant 1st bit index
-// leftboard
+// left board
 static inline int lb_get_ls1b_index(U64 bitboard)
 {
     // make sure bitboard is not 0
@@ -999,7 +910,7 @@ static inline int lb_get_ls1b_index(U64 bitboard)
         // return illegal index
         return -1;
 }
-// rightboard
+// right board
 static inline int rb_get_ls1b_index(U64 bitboard)
 {
     // make sure bitboard is not 0
@@ -1039,7 +950,7 @@ U64 lb_side_key;
 U64 rb_side_key;
 
 // init random hash keys
-// leftboard
+// left board
 void lb_init_random_keys()
 {
     // update pseudo random number state
@@ -1067,7 +978,7 @@ void lb_init_random_keys()
     // init random side key
     lb_side_key = lb_get_random_U64_number();
 }
-// rightboard
+// right board
 void rb_init_random_keys()
 {
     // update pseudo random number state
@@ -1097,7 +1008,7 @@ void rb_init_random_keys()
 }
 
 // generate "almost" unique position ID aka hash key from scratch 
-// leftboard
+// left board
 U64 lb_generate_hash_key()
 {
     // final hash key
@@ -1141,7 +1052,7 @@ U64 lb_generate_hash_key()
     // return generated hash key
     return final_key;
 }
-// rightboard
+// right board
 U64 rb_generate_hash_key()
 {
     // final hash key
@@ -1195,7 +1106,7 @@ U64 rb_generate_hash_key()
 \**********************************/
 
 // print bitboard
-// leftboard
+// left board
 void lb_print_bitboard(U64 bitboard)
 {
 #ifndef NDEBUG // print only in debug mode
@@ -1230,7 +1141,7 @@ void lb_print_bitboard(U64 bitboard)
     printf("     Bitboard: %llud\n\n", bitboard);
 #endif
 }
-// rightboard
+// right board
 void rb_print_bitboard(U64 bitboard)
 {
 #ifndef NDEBUG // print only in debug mode
@@ -1267,7 +1178,7 @@ void rb_print_bitboard(U64 bitboard)
 }
 
 // print board
-// leftboard
+// left board
 void lb_print_board()
 {
 #ifndef NDEBUG // print only in debug mode
@@ -1277,7 +1188,7 @@ void lb_print_board()
     // loop over board ranks
     for (int rank = 0; rank < 8; rank++)
     {
-        // loop ober board files
+        // loop over board files
         for (int file = 0; file < 8; file++)
         {
             // init square
@@ -1333,7 +1244,7 @@ void lb_print_board()
     printf("     Hash key:  %llx\n", lb_hash_key);
 #endif
 }
-// rightboard
+// right board
 void rb_print_board()
 {
 #ifndef NDEBUG // print only in debug mode
@@ -1343,7 +1254,7 @@ void rb_print_board()
     // loop over board ranks
     for (int rank = 0; rank < 8; rank++)
     {
-        // loop ober board files
+        // loop over board files
         for (int file = 0; file < 8; file++)
         {
             // init square
@@ -1401,7 +1312,7 @@ void rb_print_board()
 }
 
 // reset board variables
-// leftboard
+// left board
 void lb_reset_board()
 {
     // reset board position (lb_bitboards)
@@ -1410,7 +1321,6 @@ void lb_reset_board()
     // reset occupancies (lb_bitboards)
     memset(lb_occupancies, 0ULL, sizeof(lb_occupancies));
 
-    ///< ADD>
     // reset captured pieces
     memset(lb_cap_pieces, 0, sizeof(lb_cap_pieces));
     // reset counter
@@ -1423,8 +1333,7 @@ void lb_reset_board()
 
     // reset promoted bitboards
     memset(lb_promoted_bitboards, 0ULL, sizeof(lb_promoted_bitboards));
-    ///</ADD>
-
+    
     // reset game state variables
     lb_side = 0;
     lb_enpassant = no_sq;
@@ -1438,7 +1347,7 @@ void lb_reset_board()
     // reset lb_repetition table
     memset(lb_repetition_table, 0ULL, sizeof(lb_repetition_table));
 }
-// rightboard
+// right board
 void rb_reset_board()
 {
     // reset board position (bitboards)
@@ -1447,7 +1356,6 @@ void rb_reset_board()
     // reset occupancies (rb_bitboards)
     memset(rb_occupancies, 0ULL, sizeof(rb_occupancies));
 
-    ///< ADD>
     // reset captured pieces
     memset(rb_cap_pieces, 0, sizeof(rb_cap_pieces));
 
@@ -1462,8 +1370,7 @@ void rb_reset_board()
 
     // reset promote bitboards
     memset(rb_promoted_bitboards, 0ULL, sizeof(rb_promoted_bitboards));
-    ///</ADD>
-
+    
     // reset game state variables
     rb_side = 0;
     rb_enpassant = no_sq;
@@ -1479,7 +1386,7 @@ void rb_reset_board()
 }
 
 // parse FEN string
-// leftboard
+// left board
 void lb_parse_fen(char *fen)
 {
     // prepare for new game
@@ -1544,7 +1451,7 @@ void lb_parse_fen(char *fen)
         }
     }
 
-    // got to parsing side to move (increment pointer to FEN string)
+    // go to parsing side to move (increment pointer to FEN string)
     fen++;
 
     // parse side to move
@@ -1578,7 +1485,7 @@ void lb_parse_fen(char *fen)
         fen++;
     }
 
-    // got to parsing enpassant square (increment pointer to FEN string)
+    // go to parsing enpassant square (increment pointer to FEN string)
     fen++;
 
     // parse enpassant square
@@ -1619,7 +1526,7 @@ void lb_parse_fen(char *fen)
     // init hash key
     lb_hash_key = lb_generate_hash_key();
 }
-// rightboard
+// right board
 void rb_parse_fen(char *fen)
 {
     // prepare for new game
@@ -1684,7 +1591,7 @@ void rb_parse_fen(char *fen)
         }
     }
 
-    // got to parsing side to move (increment pointer to FEN string)
+    // go to parsing side to move (increment pointer to FEN string)
     fen++;
 
     // parse side to move
@@ -1718,7 +1625,7 @@ void rb_parse_fen(char *fen)
         fen++;
     }
 
-    // got to parsing enpassant square (increment pointer to FEN string)
+    // go to parsing enpassant square (increment pointer to FEN string)
     fen++;
 
     // parse enpassant square
@@ -2134,7 +2041,7 @@ U64 lb_rook_attacks[64][4096];
 U64 rb_rook_attacks[64][4096];
 
 // generate pawn attacks
-// leftboard
+// left board
 U64 lb_mask_pawn_attacks(int lb_side, int square)
 {
     // result attacks bitboard
@@ -2168,7 +2075,7 @@ U64 lb_mask_pawn_attacks(int lb_side, int square)
     // return attack map
     return attacks;
 }
-// rightboard
+// right board
 U64 rb_mask_pawn_attacks(int rb_side, int square)
 {
     // result attacks bitboard
@@ -2204,7 +2111,7 @@ U64 rb_mask_pawn_attacks(int rb_side, int square)
     return attacks;
 }
 // generate knight attacks
-// leftboard
+// left board
 U64 lb_mask_knight_attacks(int square)
 {
     // result attacks bitboard
@@ -2237,7 +2144,7 @@ U64 lb_mask_knight_attacks(int square)
     // return attack map
     return attacks;
 }
-// rightboard
+// right board
 U64 rb_mask_knight_attacks(int square)
 {
     // result attacks bitboard
@@ -2272,7 +2179,7 @@ U64 rb_mask_knight_attacks(int square)
 }
 
 // generate king attacks
-// leftboard
+// left board
 U64 lb_mask_king_attacks(int square)
 {
     // result attacks bitboard
@@ -2305,7 +2212,7 @@ U64 lb_mask_king_attacks(int square)
     // return attack map
     return attacks;
 }
-// rightboard
+// right board
 U64 rb_mask_king_attacks(int square)
 {
     // result attacks bitboard
@@ -2340,7 +2247,7 @@ U64 rb_mask_king_attacks(int square)
 }
 
 // mask bishop attacks
-// leftboard
+// left board
 U64 lb_mask_bishop_attacks(int square)
 {
     // result attacks bitboard
@@ -2394,7 +2301,7 @@ U64 rb_mask_bishop_attacks(int square)
 }
 
 // mask rook attacks
-// leftboard
+// left board
 U64 lb_mask_rook_attacks(int square)
 {
     // result attacks bitboard
@@ -2420,7 +2327,7 @@ U64 lb_mask_rook_attacks(int square)
     // return attack map
     return attacks;
 }
-// rightboard
+// right board
 U64 rb_mask_rook_attacks(int square)
 {
     // result attacks bitboard
@@ -2448,7 +2355,7 @@ U64 rb_mask_rook_attacks(int square)
 }
 
 // generate bishop attacks on the fly
-// leftboard
+// left board
 U64 lb_bishop_attacks_on_the_fly(int square, U64 block)
 {
     // result attacks bitboard
@@ -2493,7 +2400,7 @@ U64 lb_bishop_attacks_on_the_fly(int square, U64 block)
     // return attack map
     return attacks;
 }
-// rightboard
+// right board
 U64 rb_bishop_attacks_on_the_fly(int square, U64 block)
 {
     // result attacks bitboard
@@ -2540,7 +2447,7 @@ U64 rb_bishop_attacks_on_the_fly(int square, U64 block)
 }
 
 // generate rook attacks on the fly
-// leftboard
+// left board
 U64 lb_rook_attacks_on_the_fly(int square, U64 block)
 {
     // result attacks bitboard
@@ -2585,7 +2492,7 @@ U64 lb_rook_attacks_on_the_fly(int square, U64 block)
     // return attack map
     return attacks;
 }
-// rightboard
+// right board
 U64 rb_rook_attacks_on_the_fly(int square, U64 block)
 {
     // result attacks bitboard
@@ -2632,7 +2539,7 @@ U64 rb_rook_attacks_on_the_fly(int square, U64 block)
 }
 
 // init leaper pieces attacks
-// leftboard
+// left board
 void lb_init_leapers_attacks()
 {
     // loop over 64 board squares
@@ -2649,7 +2556,7 @@ void lb_init_leapers_attacks()
         lb_king_attacks[square] = lb_mask_king_attacks(square);
     }
 }
-// rightboard
+// right board
 void rb_init_leapers_attacks()
 {
     // loop over 64 board squares
@@ -2668,7 +2575,7 @@ void rb_init_leapers_attacks()
 }
 
 // set occupancies
-// leftboard
+// left board
 U64 lb_set_occupancy(int index, int bits_in_mask, U64 attack_mask)
 {
     // occupancy map
@@ -2692,7 +2599,7 @@ U64 lb_set_occupancy(int index, int bits_in_mask, U64 attack_mask)
     // return occupancy map
     return occupancy;
 }
-// rightboard
+// right board
 U64 rb_set_occupancy(int index, int bits_in_mask, U64 attack_mask)
 {
     // occupancy map
@@ -2726,7 +2633,7 @@ U64 rb_set_occupancy(int index, int bits_in_mask, U64 attack_mask)
 \**********************************/
 
 // init slider piece's attack tables
-// leftboard
+// left board
 void lb_init_sliders_attacks(int bishop)
 {
     // loop over 64 board squares
@@ -2776,7 +2683,7 @@ void lb_init_sliders_attacks(int bishop)
         }
     }
 }
-// rightboard
+// right board
 void rb_init_sliders_attacks(int bishop)
 {
     // loop over 64 board squares
@@ -2828,7 +2735,7 @@ void rb_init_sliders_attacks(int bishop)
 }
 
 // get bishop attacks
-// leftboard
+// left board
 static inline U64 lb_get_bishop_attacks(int square, U64 occupancy)
 {
     // get bishop attacks assuming current board occupancy
@@ -2839,7 +2746,7 @@ static inline U64 lb_get_bishop_attacks(int square, U64 occupancy)
     // return bishop attacks
     return lb_bishop_attacks[square][occupancy];
 }
-// rightboard
+// right board
 static inline U64 rb_get_bishop_attacks(int square, U64 occupancy)
 {
     // get bishop attacks assuming current board occupancy
@@ -2852,7 +2759,7 @@ static inline U64 rb_get_bishop_attacks(int square, U64 occupancy)
 }
 
 // get rook attacks
-// leftboard
+// left board
 static inline U64 lb_get_rook_attacks(int square, U64 occupancy)
 {
     // get rook attacks assuming current board occupancy
@@ -2863,7 +2770,7 @@ static inline U64 lb_get_rook_attacks(int square, U64 occupancy)
     // return rook attacks
     return lb_rook_attacks[square][occupancy];
 }
-// rightboard
+// right board
 static inline U64 rb_get_rook_attacks(int square, U64 occupancy)
 {
     // get rook attacks assuming current board occupancy
@@ -2876,7 +2783,7 @@ static inline U64 rb_get_rook_attacks(int square, U64 occupancy)
 }
 
 // get queen attacks
-// leftboard
+// left board
 static inline U64 lb_get_queen_attacks(int square, U64 occupancy)
 {
     // init result attacks bitboard
@@ -2907,7 +2814,7 @@ static inline U64 lb_get_queen_attacks(int square, U64 occupancy)
     // return queen attacks
     return queen_attacks;
 }
-// rightboard
+// right board
 static inline U64 rb_get_queen_attacks(int square, U64 occupancy)
 {
     // init result attacks bitboard
@@ -2948,7 +2855,7 @@ static inline U64 rb_get_queen_attacks(int square, U64 occupancy)
 \**********************************/
 
 // is square current given attacked by the current given side
-// leftboard
+// left board
 static inline int lb_is_square_attacked(int square, int lb_side)
 {
     // attacked by white pawns
@@ -2982,7 +2889,7 @@ static inline int lb_is_square_attacked(int square, int lb_side)
     // by default return 0
     return 0;
 }
-// rightboard
+// right board
 static inline int rb_is_square_attacked(int square, int rb_side)
 {
     // attacked by white pawns
@@ -3018,7 +2925,7 @@ static inline int rb_is_square_attacked(int square, int rb_side)
 }
 
 // print attacked squares
-// leftboard
+// left board
 void lb_print_attacked_squares(int lb_side)
 {
 #ifndef NDEBUG // print only in debug mode
@@ -3049,7 +2956,7 @@ void lb_print_attacked_squares(int lb_side)
     printf("\n     a b c d e f g h\n\n");
 #endif
 }
-// rightboard
+// right board
 void rb_print_attacked_squares(int rb_side)
 {
 #ifndef NDEBUG // print only in debug mode
@@ -3081,46 +2988,157 @@ void rb_print_attacked_squares(int rb_side)
 #endif
 }
 
+/*
+  8  1 1 1 1 1 1 1 1
+  7  1 1 1 1 1 1 1 1
+  6  1 1 1 1 1 1 1 1
+  5  1 1 1 1 1 1 1 1
+  4  1 1 1 1 1 1 1 1
+  3  1 1 1 1 1 1 1 1
+  2  1 1 1 1 1 1 1 1
+  1  1 1 1 1 1 1 1 1
+
+     a b c d e f g h
+
+     Bitboard: 18446744073709551615
+*/
+
+#define piece_put_options 18446744073709551615ULL
+
+/*
+  8  0 0 0 0 0 0 0 0
+  7  1 1 1 1 1 1 1 1
+  6  1 1 1 1 1 1 1 1
+  5  1 1 1 1 1 1 1 1
+  4  1 1 1 1 1 1 1 1
+  3  1 1 1 1 1 1 1 1
+  2  1 1 1 1 1 1 1 1
+  1  0 0 0 0 0 0 0 0
+
+     a b c d e f g h
+
+    Bitboard: 72057594037927680d
+*/
+
+#define pawn_put_options 72057594037927680ULL
+
+/*
+To generate put options:
+for the pawn: bitboard option = ~occupancies[both] & pawn_put_options
+for the knight, bishop, rook or queen: bitboard option = ~occupancies[both] & piece_options
+*/
+
+/*
+          binary move bits                               hexidecimal constants
+
+    0000 0000 0000 0000 0011 1111    source square       0x3f
+    0000 0000 0000 1111 1100 0000    target square       0xfc0
+    0000 0000 1111 0000 0000 0000    piece               0xf000
+    0000 1111 0000 0000 0000 0000    promoted piece      0xf0000
+    0001 0000 0000 0000 0000 0000    capture flag        0x100000
+    0010 0000 0000 0000 0000 0000    double push flag    0x200000
+    0100 0000 0000 0000 0000 0000    enpassant flag      0x400000
+    1000 0000 0000 0000 0000 0000    castling flag       0x800000
+*/
+
+// encode move
+/*
+    a put option move: source and target are the same,
+    piece is pawn, knight, bishop, rook or queen,
+    no flags are set
+*/
+
+#define encode_move(source, target, piece, promoted, capture, double_push, enpassant, castling) \
+    ((source)) |                                                                                \
+        ((target) << 6) |                                                                       \
+        ((piece) << 12) |                                                                       \
+        ((promoted) << 16) |                                                                    \
+        ((capture) << 20) |                                                                     \
+        ((double_push) << 21) |                                                                 \
+        ((enpassant) << 22) |                                                                   \
+        ((castling) << 23)
+
+// extract source square
+#define get_move_source(move) ((move) & 0x3f)
+
+// extract target square
+#define get_move_target(move) (((move) & 0xfc0) >> 6)
+
+// extract piece
+#define get_move_piece(move) (((move) & 0xf000) >> 12)
+
+// extract promoted piece
+#define get_move_promoted(move) (((move) & 0xf0000) >> 16)
+
+// extract capture flag
+#define get_move_capture(move) ((move) & 0x100000)
+
+// extract double pawn push flag
+#define get_move_double(move) ((move) & 0x200000)
+
+// extract enpassant flag
+#define get_move_enpassant(move) ((move) & 0x400000)
+
+// extract castling flag
+#define get_move_castling(move) ((move) & 0x800000)
+
+#define MOVELIST_SIZE 512
+
+typedef union
+{
+    struct
+    {
+        int bmove; // encode move
+        int score; // move score
+    } move_score;
+    S64 u; // move as 64-bit integer for easy copying
+} move_t;  // move structure
+
+// move list structure
+typedef struct
+{
+    // moves
+    move_t moves[MOVELIST_SIZE];
+
+    // move count
+    int count;
+
+} moves_t; // move list structure
+
 // add move to the move list
-// leftboard
+// left board
 static inline void lb_add_move(moves_t *move_list, int move)
 {
-    ///< ADD>
     if (move_list->count < MOVELIST_SIZE - 1)
     {
-        ///</ADD>
         // strore move
-        move_list->moves[move_list->count] = move;
+        move_list->moves[move_list->count].move_score.bmove = move;
+        move_list->moves[move_list->count].move_score.score = 0;
 
         // increment move count
         move_list->count++;
-        ///< ADD>
     }
     else
         PrintAssert(move_list->count < MOVELIST_SIZE - 1);
-    ///</ADD>
 }
-// rightboard
+// right board
 static inline void rb_add_move(moves_t *move_list, int move)
 {
-    ///< ADD>
     if (move_list->count < MOVELIST_SIZE - 1)
     {
-        ///</ADD>
-        // strore move
-        move_list->moves[move_list->count] = move;
+        // store move
+        move_list->moves[move_list->count].move_score.bmove = move;
+        move_list->moves[move_list->count].move_score.score = 0;
 
         // increment move count
         move_list->count++;
-        ///< ADD>
     }
     else
         PrintAssert(move_list->count < MOVELIST_SIZE - 1);
-    ///</ADD>
 }
 
 // print move (for UCI purposes)
-// leftboard
+// left board
 void lb_print_move(int move)
 {
 #ifndef NDEBUG // print only in debug mode
@@ -3133,7 +3151,7 @@ void lb_print_move(int move)
                lb_square_to_coordinates[get_move_target(move)]);
 #endif
 }
-// rightboard
+// right board
 void rb_print_move(int move)
 {
 #ifndef NDEBUG // print only in debug mode
@@ -3148,7 +3166,7 @@ void rb_print_move(int move)
 }
 
 // print move list
-// leftboard
+// left board
 void lb_print_move_list(moves_t *move_list)
 {
 #ifndef NDEBUG // print only in debug mode
@@ -3165,7 +3183,7 @@ void lb_print_move_list(moves_t *move_list)
     for (int move_count = 0; move_count < move_list->count; move_count++)
     {
         // init move
-        int move = move_list->moves[move_count];
+        int move = move_list->moves[move_count].move_score.bmove;
 
 #ifdef _WIN64
         // print move
@@ -3194,7 +3212,7 @@ void lb_print_move_list(moves_t *move_list)
     printf("\n\n     Total number of moves: %d\n\n", move_list->count);
 #endif
 }
-// rightboard
+// right board
 void rb_print_move_list(moves_t *move_list)
 {
 #ifndef NDEBUG // print only in debug mode
@@ -3211,7 +3229,7 @@ void rb_print_move_list(moves_t *move_list)
     for (int move_count = 0; move_count < move_list->count; move_count++)
     {
         // init move
-        int move = move_list->moves[move_count];
+        int move = move_list->moves[move_count].move_score.bmove;
 
 #ifdef _WIN64
         // print move
@@ -3242,8 +3260,7 @@ void rb_print_move_list(moves_t *move_list)
 }
 
 // preserve board state
-// leftboard
-///< ADD> cap_pieces + count, passthrough pieces + count, promoted_bitboards, fifty
+// left board
 #define lb_copy_board()                                                                                                   \
     U64 lb_bitboards_copy[12], lb_occupancies_copy[3], lb_promoted_bitboards_copy[2], lb_hash_key_copy;                   \
     int lb_side_copy, lb_enpassant_copy, lb_castle_copy, lb_fifty_copy, lb_cap_pieces_copy[64], lb_cap_pieces_count_copy, \
@@ -3256,7 +3273,7 @@ void rb_print_move_list(moves_t *move_list)
     lb_cap_pieces_count_copy = lb_cap_pieces_count, lb_pt_pieces_count_copy = lb_pt_pieces_count;                         \
     lb_side_copy = lb_side, lb_enpassant_copy = lb_enpassant, lb_castle_copy = lb_castle,                                 \
     lb_fifty_copy = lb_fifty, lb_hash_key_copy = lb_hash_key;
-// rightboard
+// right board
 #define rb_copy_board()                                                                                                   \
     U64 rb_bitboards_copy[12], rb_occupancies_copy[3], rb_promoted_bitboards_copy[2], rb_hash_key_copy;                   \
     int rb_side_copy, rb_enpassant_copy, rb_castle_copy, rb_fifty_copy, rb_cap_pieces_copy[64], rb_cap_pieces_count_copy, \
@@ -3269,11 +3286,9 @@ void rb_print_move_list(moves_t *move_list)
     rb_cap_pieces_count_copy = rb_cap_pieces_count, rb_pt_pieces_count_copy = rb_pt_pieces_count;                         \
     rb_side_copy = rb_side, rb_enpassant_copy = rb_enpassant, rb_castle_copy = rb_castle,                                 \
     rb_fifty_copy = rb_fifty, rb_hash_key_copy = rb_hash_key;
-///</ADD>
 
 // restore board state
-// leftboard
-///< ADD> cap_pieces + count, passthrough pieces + count, promoted_bitboards, fifty
+// left board
 #define lb_take_back()                                                                            \
     memcpy(lb_bitboards, lb_bitboards_copy, 96);                                                  \
     memcpy(lb_occupancies, lb_occupancies_copy, 24);                                              \
@@ -3283,7 +3298,7 @@ void rb_print_move_list(moves_t *move_list)
     lb_cap_pieces_count = lb_cap_pieces_count_copy, lb_pt_pieces_count = lb_pt_pieces_count_copy; \
     lb_side = lb_side_copy, lb_enpassant = lb_enpassant_copy, lb_castle = lb_castle_copy,         \
     lb_fifty = lb_fifty_copy, lb_hash_key = lb_hash_key_copy;
-// rightboard
+// right board
 #define rb_take_back()                                                                            \
     memcpy(rb_bitboards, rb_bitboards_copy, 96);                                                  \
     memcpy(rb_occupancies, rb_occupancies_copy, 24);                                              \
@@ -3293,8 +3308,6 @@ void rb_print_move_list(moves_t *move_list)
     rb_cap_pieces_count = rb_cap_pieces_count_copy, rb_pt_pieces_count = rb_pt_pieces_count_copy; \
     rb_side = rb_side_copy, rb_enpassant = rb_enpassant_copy, rb_castle = rb_castle_copy,         \
     rb_fifty = rb_fifty_copy, rb_hash_key = rb_hash_key_copy;
-///</ADD>
-
 /*
                            castling   move     in      in
                               right update     binary  decimal
@@ -3331,9 +3344,8 @@ const int rb_castling_rights[64] = {
     15, 15, 15, 15, 15, 15, 15, 15,
     13, 15, 15, 15, 12, 15, 15, 14};
 
-///< ADD>
 // put a piece on the board
-// leftboard
+// left board
 static inline int lb_put_move(int move)
 {
     // preserve board state
@@ -3389,7 +3401,7 @@ static inline int lb_put_move(int move)
     // return legal put move
     return 1;
 }
-// rightboard
+// right board
 static inline int rb_put_move(int move)
 {
     // preserve board state
@@ -3446,10 +3458,9 @@ static inline int rb_put_move(int move)
     // return legal put move
     return 1;
 }
-///</ADD>
 
 // make move on chess board
-// leftboard
+// left board
 static inline int lb_make_move(int move, int move_flag)
 {
     // quiet moves
@@ -3465,11 +3476,9 @@ static inline int lb_make_move(int move, int move_flag)
         int enpass = get_move_enpassant(move);
         int castling = get_move_castling(move);
 
-        ///< ADD>
         if (source_square == target_square)
             return lb_put_move(move);
-        ///</ADD>
-
+        
         // preserve board state
         lb_copy_board();
 
@@ -3477,15 +3486,13 @@ static inline int lb_make_move(int move, int move_flag)
         pop_bit(lb_bitboards[piece], source_square);
         set_bit(lb_bitboards[piece], target_square);
 
-        ///< ADD>
         // Is piece a promoted piece then move on the promoted bitboard for the side to move
         if (get_bit(lb_promoted_bitboards[lb_side], source_square))
         {
             pop_bit(lb_promoted_bitboards[lb_side], source_square);
             set_bit(lb_promoted_bitboards[lb_side], target_square);
         }
-        ///</ADD>
-
+        
         // hash piece
         lb_hash_key ^= lb_piece_keys[piece][source_square]; // remove piece from source square in hash key
         lb_hash_key ^= lb_piece_keys[piece][target_square]; // set piece to the target square in hash key
@@ -3529,7 +3536,6 @@ static inline int lb_make_move(int move, int move_flag)
                     // for updating the captured bitboards
                     int cap_piece = bb_piece;
 
-                    ///< ADD>
                     // is the captured piece a promoted piece?
                     if (get_bit(lb_promoted_bitboards[lb_side ^ 1], target_square))
                     {
@@ -3539,8 +3545,7 @@ static inline int lb_make_move(int move, int move_flag)
                         cap_piece = (!lb_side) ? p : P;
                     }
                     lb_pt_pieces[lb_pt_pieces_count++] = cap_piece + 100;
-                    ///</ADD>
-
+                    
                     // remove it from corresponding bitboard
                     pop_bit(lb_bitboards[bb_piece], target_square);
 
@@ -3557,11 +3562,9 @@ static inline int lb_make_move(int move, int move_flag)
             // white to move
             if (lb_side == white)
             {
-                ///< ADD>
                 // add the square to the promoted bitboard to keep track of the promoted piece
                 set_bit(lb_promoted_bitboards[white], target_square);
-                ///</ADD>
-
+               
                 // erase the pawn from the target square
                 pop_bit(lb_bitboards[P], target_square);
 
@@ -3571,11 +3574,9 @@ static inline int lb_make_move(int move, int move_flag)
             // black to move
             else
             {
-                ///< ADD>
                 // add the square to the promoted bitboard to keep track of the promoted piece
                 set_bit(lb_promoted_bitboards[black], target_square);
-                ///</ADD>
-
+               
                 // erase the pawn from the target square
                 pop_bit(lb_bitboards[p], target_square);
 
@@ -3762,7 +3763,7 @@ static inline int lb_make_move(int move, int move_flag)
     }
     return 0;
 }
-// rightboard
+// right board
 static inline int rb_make_move(int move, int move_flag)
 {
     // quiet moves
@@ -3778,11 +3779,9 @@ static inline int rb_make_move(int move, int move_flag)
         int enpass = get_move_enpassant(move);
         int castling = get_move_castling(move);
 
-        ///< ADD>
         if (source_square == target_square)
             return rb_put_move(move);
-        ///</ADD>
-
+        
         // preserve board state
         rb_copy_board();
 
@@ -3790,15 +3789,13 @@ static inline int rb_make_move(int move, int move_flag)
         pop_bit(rb_bitboards[piece], source_square);
         set_bit(rb_bitboards[piece], target_square);
 
-        ///< ADD>
         /* Is piece a promoted piece then move on the promoted bitboard for the side 2 move */
         if (get_bit(rb_promoted_bitboards[rb_side], source_square))
         {
             pop_bit(rb_promoted_bitboards[rb_side], source_square);
             set_bit(rb_promoted_bitboards[rb_side], target_square);
         }
-        ///</ADD>
-
+        
         // hash piece
         rb_hash_key ^= rb_piece_keys[piece][source_square]; // remove piece from source square in hash key
         rb_hash_key ^= rb_piece_keys[piece][target_square]; // set piece to the target square in hash key
@@ -3842,7 +3839,6 @@ static inline int rb_make_move(int move, int move_flag)
                     // for updating the captured bitboards in the gui
                     int cap_piece = bb_piece;
 
-                    ///< ADD>
                     // is the captured piece a promoted piece ?
                     if (get_bit(rb_promoted_bitboards[rb_side ^ 1], target_square))
                     {
@@ -3852,8 +3848,7 @@ static inline int rb_make_move(int move, int move_flag)
                         cap_piece = (!rb_side) ? p : P;
                     }
                     rb_pt_pieces[rb_pt_pieces_count++] = cap_piece + 100;
-                    ///</ADD>
-
+                    
                     // remove it from corresponding bitboard
                     pop_bit(rb_bitboards[bb_piece], target_square);
 
@@ -3870,11 +3865,9 @@ static inline int rb_make_move(int move, int move_flag)
             // white to move
             if (rb_side == white)
             {
-                ///< ADD>
                 // add the square to the promoted bitboard to keep track of the promoted piece
                 set_bit(rb_promoted_bitboards[white], target_square);
-                ///</ADD>
-
+                
                 // erase the pawn from the target square
                 pop_bit(rb_bitboards[P], target_square);
 
@@ -3883,11 +3876,9 @@ static inline int rb_make_move(int move, int move_flag)
             }
             else // black to move
             {
-                ///< ADD>
                 // add the square to the promoted bitboard to keep track of the promoted piece
                 set_bit(rb_promoted_bitboards[black], target_square);
-                ///</ADD>
-
+                
                 // erase the pawn from the target square
                 pop_bit(rb_bitboards[p], target_square);
 
@@ -4075,7 +4066,7 @@ static inline int rb_make_move(int move, int move_flag)
 }
 
 // generate all moves
-// leftboard
+// left board
 static inline void lb_generate_moves(moves_t *move_list)
 {
     // init move count
@@ -4495,7 +4486,6 @@ static inline void lb_generate_moves(moves_t *move_list)
         }
     }
 
-    ///< ADD>
     // make captured pieces move
     if (lb_cap_pieces_count == 0)
         return;
@@ -4533,9 +4523,8 @@ static inline void lb_generate_moves(moves_t *move_list)
             }
         }
     }
-    ///</ADD>
 }
-// rightboard
+// right board
 static inline void rb_generate_moves(moves_t *move_list)
 {
     // init move count
@@ -4955,7 +4944,6 @@ static inline void rb_generate_moves(moves_t *move_list)
         }
     }
 
-    ///< ADD>
     // make captured pieces move    
     if (rb_cap_pieces_count == 0)
         return;
@@ -4993,20 +4981,7 @@ static inline void rb_generate_moves(moves_t *move_list)
             }
         }
     }
-    ///</ADD>
 }
-
-/**********************************\
- ==================================
-
-               Perft
-
- ==================================
-\**********************************/
-
-// leaf nodes (number of positions reached during the test of the move generator at a given depth)
-U64 lb_nodes;
-U64 rb_nodes;
 
 /**********************************\
  ==================================
@@ -5427,7 +5402,7 @@ const int lb_king_shield_bonus = 5;
 const int rb_king_shield_bonus = 5;
 
 // set file or rank mask
-// leftboard
+// left board
 U64 lb_set_file_rank_mask(int file_number, int rank_number)
 {
     // file or rank mask
@@ -5463,7 +5438,7 @@ U64 lb_set_file_rank_mask(int file_number, int rank_number)
     // return mask
     return mask;
 }
-// rightboard
+// right board
 U64 rb_set_file_rank_mask(int file_number, int rank_number)
 {
     // file or rank mask
@@ -5501,7 +5476,7 @@ U64 rb_set_file_rank_mask(int file_number, int rank_number)
 }
 
 // init evaluation masks
-// leftboard
+// left board
 void lb_init_evaluation_masks()
 {
     /******** Init file masks ********/
@@ -5599,7 +5574,7 @@ void lb_init_evaluation_masks()
         }
     }
 }
-// rightboard
+// right board
 void rb_init_evaluation_masks()
 {
     /******** Init file masks ********/
@@ -5699,7 +5674,7 @@ void rb_init_evaluation_masks()
 }
 
 // get game phase score
-// leftboard
+// left board
 static inline int lb_get_game_phase_score()
 {
     /*
@@ -5727,7 +5702,7 @@ static inline int lb_get_game_phase_score()
     // return game phase score
     return white_piece_scores + black_piece_scores;
 }
-// rightboard
+// right board
 static inline int rb_get_game_phase_score()
 {
     /*
@@ -5757,7 +5732,7 @@ static inline int rb_get_game_phase_score()
 }
 
 // position evaluation
-// leftboard
+// left board
 static inline int lb_evaluate()
 {
     // get game phase score
@@ -6074,7 +6049,7 @@ static inline int lb_evaluate()
     // return final evaluation based on side
     return (lb_side == white) ? score : -score;
 }
-// rightboard
+// right board
 static inline int rb_evaluate()
 {
     // get game phase score
@@ -6400,6 +6375,16 @@ static inline int rb_evaluate()
  ==================================
 \**********************************/
 
+// max search depth
+#define max_ply 64
+
+/*
+     These are the score bounds for the range of the mating scores
+   [-infinity, -mate_value ... -mate_score, ... score ... mate_score ... mate_value, infinity]
+*/
+#define infinity 50000
+#define mate_value 49000
+#define mate_score 48000
 // most valuable victim & less valuable attacker
 
 /*
@@ -6445,13 +6430,11 @@ static int rb_mvv_lva[12][12] = {
     {101, 201, 301, 401, 501, 601, 101, 201, 301, 401, 501, 601},
     {100, 200, 300, 400, 500, 600, 100, 200, 300, 400, 500, 600}};
 
-///< ADD>
 // values for pieces put on the board
 static int lb_put_value[11] = {
     100, 300, 325, 500, 900, 0, 100, 300, 325, 500, 900};
 static int rb_put_value[11] = {
     100, 300, 300, 500, 900, 0, 100, 300, 300, 500, 900};
-///</ADD>
 
 // killer moves [id][ply]
 int lb_killer_moves[2][max_ply];
@@ -6494,6 +6477,13 @@ int rb_pv_table[max_ply][max_ply];
 // follow PV & score PV move
 int lb_follow_pv, lb_score_pv;
 int rb_follow_pv, rb_score_pv;
+// full depth moves counter
+const int lb_full_depth_moves = 4;
+const int rb_full_depth_moves = 4;
+
+// depth limit to consider reduction
+const int lb_reduction_limit = 3;
+const int rb_reduction_limit = 3;
 
 /**********************************\
  ==================================
@@ -6506,13 +6496,31 @@ int rb_follow_pv, rb_score_pv;
 // number hash table entries
 int lb_hash_entries = 0;
 int rb_hash_entries = 0;
+// no hash entry found constant
+#define no_hash_entry 100000
+
+// transposition table hash flags
+#define hash_flag_exact 0
+#define hash_flag_alpha 1
+#define hash_flag_beta 2
+
+// transposition table data structure
+// add best_move
+typedef struct
+{
+    U64 hash_key;  // "almost" unique chess position identifier
+    int depth;     // current search depth
+    int flag;      // flag the type of node (fail-low/fail-high/PV)
+    int score;     // score (alpha/beta/PV)
+    int best_move; // best move found
+} tt;              // transposition table (TT aka hash table)
 
 // define TT instance
 tt *lb_hash_table = NULL;
 tt *rb_hash_table = NULL;
 
 // clear TT (hash table)
-// leftboard
+// left board
 void lb_clear_hash_table()
 {
     // init hash table entry pointer
@@ -6526,9 +6534,10 @@ void lb_clear_hash_table()
         hash_entry->depth = 0;
         hash_entry->flag = 0;
         hash_entry->score = 0;
+        hash_entry->best_move = 0;
     }
 }
-// rightboard
+// right board
 void rb_clear_hash_table()
 {
     // init hash table entry pointer
@@ -6542,11 +6551,12 @@ void rb_clear_hash_table()
         hash_entry->depth = 0;
         hash_entry->flag = 0;
         hash_entry->score = 0;
+		hash_entry->best_move = 0;
     }
 }
 
 // dynamically allocate memory for hash table
-// leftboard
+// left board
 void lb_init_hash_table(int mb)
 {
     // init hash size
@@ -6585,11 +6595,11 @@ void lb_init_hash_table(int mb)
         // clear hash table
         lb_clear_hash_table();
 #ifndef NDEBUG // print only in debug mode
-        printf("   Hash table is initialied with %d entries\n", lb_hash_entries);
+        printf("  lb Hash table is initialied with %d entries\n", lb_hash_entries);
 #endif
     }
 }
-// rightboard
+// right board
 void rb_init_hash_table(int mb)
 {
     // init hash size
@@ -6629,14 +6639,15 @@ void rb_init_hash_table(int mb)
         // clear hash table
         rb_clear_hash_table();
 #ifndef NDEBUG // print only in debug mode
-        printf("    Hash table is initialied with %d entries\n", rb_hash_entries);
+        printf("   rb Hash table is initialied with %d entries\n", rb_hash_entries);
 #endif
     }
 }
 
+// add best_move
 // read hash entry data
-// leftboard
-static inline int lb_read_hash_entry(int alpha, int beta, int depth)
+// left board
+static inline int lb_read_hash_entry(int alpha, int beta, int *best_move, int depth)
 {
     // create a TT instance pointer to particular hash entry storing
     // the scoring data for the current board position if available
@@ -6675,13 +6686,15 @@ static inline int lb_read_hash_entry(int alpha, int beta, int depth)
                 // return beta (fail-high node) score
                 return beta;
         }
+        // store best move add
+        *best_move = hash_entry->best_move;
     }
 
     // if hash entry doesn't exist
     return no_hash_entry;
 }
-// rightboard
-static inline int rb_read_hash_entry(int alpha, int beta, int depth)
+// right board
+static inline int rb_read_hash_entry(int alpha, int beta, int *best_move, int depth)
 {
     // create a TT instance pointer to particular hash entry storing
     // the scoring data for the current board position if available
@@ -6720,15 +6733,18 @@ static inline int rb_read_hash_entry(int alpha, int beta, int depth)
                 // return beta (fail-high node) score
                 return beta;
         }
+        // store best move add
+        *best_move = hash_entry->best_move;
     }
 
     // if hash entry doesn't exist
     return no_hash_entry;
 }
 
+// add best_move
 // write hash entry data
-// leftboard
-static inline void lb_write_hash_entry(int score, int depth, int hash_flag)
+// left board
+static inline void lb_write_hash_entry(int score, int best_move, int depth, int hash_flag)
 {
     // create a TT instance pointer to particular hash entry storing
     // the scoring data for the current board position if available
@@ -6746,9 +6762,10 @@ static inline void lb_write_hash_entry(int score, int depth, int hash_flag)
     hash_entry->score = score;
     hash_entry->flag = hash_flag;
     hash_entry->depth = depth;
+    hash_entry->best_move = best_move; // add
 }
-// rightboard
-static inline void rb_write_hash_entry(int score, int depth, int hash_flag)
+// right board
+static inline void rb_write_hash_entry(int score, int best_move, int depth, int hash_flag)
 {
     // create a TT instance pointer to particular hash entry storing
     // the scoring data for the current board position if available
@@ -6766,10 +6783,11 @@ static inline void rb_write_hash_entry(int score, int depth, int hash_flag)
     hash_entry->score = score;
     hash_entry->flag = hash_flag;
     hash_entry->depth = depth;
+	hash_entry->best_move = best_move; // add
 }
 
 // enable PV move scoring
-// leftboard
+// left board
 static inline void lb_enable_pv_scoring(moves_t *move_list)
 {
     // disable following PV
@@ -6779,7 +6797,7 @@ static inline void lb_enable_pv_scoring(moves_t *move_list)
     for (int count = 0; count < move_list->count; count++)
     {
         // make sure we hit PV move
-        if (lb_pv_table[0][lb_ply] == move_list->moves[count])
+        if (lb_pv_table[0][lb_ply] == move_list->moves[count].move_score.bmove)
         {
             // enable move scoring
             lb_score_pv = 1;
@@ -6789,7 +6807,7 @@ static inline void lb_enable_pv_scoring(moves_t *move_list)
         }
     }
 }
-// rightboard
+// right board
 static inline void rb_enable_pv_scoring(moves_t *move_list)
 {
     // disable following PV
@@ -6799,7 +6817,7 @@ static inline void rb_enable_pv_scoring(moves_t *move_list)
     for (int count = 0; count < move_list->count; count++)
     {
         // make sure we hit PV move
-        if (rb_pv_table[0][rb_ply] == move_list->moves[count])
+        if (rb_pv_table[0][rb_ply] == move_list->moves[count].move_score.bmove)
         {
             // enable move scoring
             rb_score_pv = 1;
@@ -6818,15 +6836,13 @@ static inline void rb_enable_pv_scoring(moves_t *move_list)
     2. Captures in MVV/LVA
     3. 1st killer move
     4. 2nd killer move
-    ///<ADD>
     5. Put move
-    ///</ADD>
     6. History moves
     7. Unsorted moves
 */
 
 // score moves
-// leftboard
+// left board
 static inline int lb_score_move(int move)
 {
     // if PV move scoring is allowed
@@ -6891,12 +6907,9 @@ static inline int lb_score_move(int move)
         else if (lb_killer_moves[1][lb_ply] == move)
             return 8000;
 
-        ///< ADD>
         // score put move
         else if (get_move_source(move) == get_move_target(move))
-            return lb_put_value[get_move_piece(move)] + 1000;
-        ///</ADD>
-
+            return lb_put_value[get_move_piece(move)] + 5000;
         // score history move
         else
             return lb_history_moves[get_move_piece(move)][get_move_target(move)];
@@ -6904,7 +6917,7 @@ static inline int lb_score_move(int move)
 
     return 0;
 }
-// rightboard
+// right board
 static inline int rb_score_move(int move)
 {
     // if PV move scoring is allowed
@@ -6971,7 +6984,7 @@ static inline int rb_score_move(int move)
 
         // score put move
         else if (get_move_source(move) == get_move_target(move))
-            return rb_put_value[get_move_piece(move)] + 1000;
+            return rb_put_value[get_move_piece(move)] + 5000;
 
         // score history move
         else
@@ -6982,17 +6995,19 @@ static inline int rb_score_move(int move)
 }
 
 // sort moves in descending order
-// leftboard
-static inline int lb_sort_moves(moves_t *move_list)
+// left board
+static inline int lb_sort_moves(moves_t *move_list, int best_move)
 {
-    // move scores
-    int move_scores[move_list->count];
-
     // score all the moves within a move list
     for (int count = 0; count < move_list->count; count++)
-        // score move
-        move_scores[count] = lb_score_move(move_list->moves[count]);
-
+	{
+		// best move
+    	if (best_move == move_list->moves[count].move_score.bmove)
+    		move_list->moves[count].move_score.score = 30000;
+		else
+        	// score move
+        	move_list->moves[count].move_score.score = lb_score_move(move_list->moves[count].move_score.bmove);
+	}
     // loop over current move within a move list
     for (int current_move = 0; current_move < move_list->count; current_move++)
     {
@@ -7000,33 +7015,30 @@ static inline int lb_sort_moves(moves_t *move_list)
         for (int next_move = current_move + 1; next_move < move_list->count; next_move++)
         {
             // compare current and next move scores
-            if (move_scores[current_move] < move_scores[next_move])
+            if (move_list->moves[current_move].move_score.score < move_list->moves[next_move].move_score.score)
             {
-                // swap scores
-                int temp_score = move_scores[current_move];
-                move_scores[current_move] = move_scores[next_move];
-                move_scores[next_move] = temp_score;
-
                 // swap moves
-                int temp_move = move_list->moves[current_move];
-                move_list->moves[current_move] = move_list->moves[next_move];
-                move_list->moves[next_move] = temp_move;
+                S64 temp_move = move_list->moves[current_move].u;
+                move_list->moves[current_move].u = move_list->moves[next_move].u;
+                move_list->moves[next_move].u = temp_move;
             }
         }
     }
     return 0;
 }
-// rightboard
-static inline int rb_sort_moves(moves_t *move_list)
+// right board
+static inline int rb_sort_moves(moves_t *move_list, int best_move)
 {
-    // move scores
-    int move_scores[move_list->count];
-
     // score all the moves within a move list
     for (int count = 0; count < move_list->count; count++)
-        // score move
-        move_scores[count] = rb_score_move(move_list->moves[count]);
-
+    {
+    	// best move
+    	if (best_move == move_list->moves[count].move_score.bmove)
+    		move_list->moves[count].move_score.score = 30000;
+		else
+        	// score move
+        	move_list->moves[count].move_score.score = rb_score_move(move_list->moves[count].move_score.bmove);
+	}
     // loop over current move within a move list
     for (int current_move = 0; current_move < move_list->count; current_move++)
     {
@@ -7034,17 +7046,12 @@ static inline int rb_sort_moves(moves_t *move_list)
         for (int next_move = current_move + 1; next_move < move_list->count; next_move++)
         {
             // compare current and next move scores
-            if (move_scores[current_move] < move_scores[next_move])
+            if (move_list->moves[current_move].move_score.score < move_list->moves[next_move].move_score.score)
             {
-                // swap scores
-                int temp_score = move_scores[current_move];
-                move_scores[current_move] = move_scores[next_move];
-                move_scores[next_move] = temp_score;
-
                 // swap moves
-                int temp_move = move_list->moves[current_move];
-                move_list->moves[current_move] = move_list->moves[next_move];
-                move_list->moves[next_move] = temp_move;
+                S64 temp_move = move_list->moves[current_move].u;
+                move_list->moves[current_move].u = move_list->moves[next_move].u;
+                move_list->moves[next_move].u = temp_move;
             }
         }
     }
@@ -7052,7 +7059,7 @@ static inline int rb_sort_moves(moves_t *move_list)
 }
 
 // print move scores
-// leftboard
+// left board
 void lb_print_move_scores(moves_t *move_list)
 {
 #ifndef NDEBUG // print only in debug mode
@@ -7062,12 +7069,12 @@ void lb_print_move_scores(moves_t *move_list)
     for (int count = 0; count < move_list->count; count++)
     {
         printf("    move: ");
-        lb_print_move(move_list->moves[count]);
-        printf("score: %d\n", lb_score_move(move_list->moves[count]));
+        lb_print_move(move_list->moves[count].move_score.bmove);
+        printf("score: %d\n", move_list->moves[count].move_score.score);
     }
 #endif
 }
-// rightboard
+// right board
 void rb_print_move_scores(moves_t *move_list)
 {
 #ifndef NDEBUG // print only in debug mode
@@ -7077,14 +7084,14 @@ void rb_print_move_scores(moves_t *move_list)
     for (int count = 0; count < move_list->count; count++)
     {
         printf("     move: ");
-        rb_print_move(move_list->moves[count]);
-        printf("score: %d\n", rb_score_move(move_list->moves[count]));
+        rb_print_move(move_list->moves[count].move_score.bmove);
+        printf("score: %d\n", move_list->moves[count].move_score.score);
     }
 #endif
 }
 
 // position repetition detection
-// leftboard
+// left board
 static inline int lb_is_repetition()
 {
     // loop over repetition indicies range
@@ -7097,7 +7104,7 @@ static inline int lb_is_repetition()
     // if no repetition found
     return 0;
 }
-// rightboard
+// right board
 static inline int rb_is_repetition()
 {
     // loop over repetition indicies range
@@ -7112,7 +7119,7 @@ static inline int rb_is_repetition()
 }
 
 // quiescence search
-// leftboard
+// left board
 static inline int lb_quiescence(int alpha, int beta)
 {
     // every 2047 lb_nodes
@@ -7152,7 +7159,7 @@ static inline int lb_quiescence(int alpha, int beta)
     lb_generate_moves(move_list);
 
     // sort moves
-    lb_sort_moves(move_list);
+    lb_sort_moves(move_list, 0);
 
     // loop over moves within a movelist
     for (int count = 0; count < move_list->count; count++)
@@ -7164,26 +7171,16 @@ static inline int lb_quiescence(int alpha, int beta)
         lb_ply++;
 
         // increment repetition index & store hash key
-        ///< ADD>
-        if (lb_repetition_index < 999)
-        {
-            ///</ADD>
-            lb_repetition_index++;
-            lb_repetition_table[lb_repetition_index] = lb_hash_key;
-            ///< ADD>
-        }
-        else
-            PrintAssert(lb_repetition_index < 999);
-        ///</ADD>
+        lb_add_to_repetition_table();
 
         // make sure to make only legal moves
-        if (lb_make_move(move_list->moves[count], only_captures) == 0)
+        if (lb_make_move(move_list->moves[count].move_score.bmove, only_captures) == 0)
         {
             // decrement ply
             lb_ply--;
 
             // decrement repetition index
-            lb_repetition_index--;
+            lb_remove_from_repetition_table();
 
             // skip to next move
             continue;
@@ -7196,7 +7193,7 @@ static inline int lb_quiescence(int alpha, int beta)
         lb_ply--;
 
         // decrement repetition index
-        lb_repetition_index--;
+        lb_remove_from_repetition_table();
 
         // take move back
         lb_take_back();
@@ -7222,7 +7219,7 @@ static inline int lb_quiescence(int alpha, int beta)
     // node (position) fails low
     return alpha;
 }
-// rightboard
+// right board
 static inline int rb_quiescence(int alpha, int beta)
 {
     // every 2047 rb_nodes
@@ -7262,7 +7259,7 @@ static inline int rb_quiescence(int alpha, int beta)
     rb_generate_moves(move_list);
 
     // sort moves
-    rb_sort_moves(move_list);
+    rb_sort_moves(move_list, 0);
 
     // loop over moves within a movelist
     for (int count = 0; count < move_list->count; count++)
@@ -7274,26 +7271,16 @@ static inline int rb_quiescence(int alpha, int beta)
         rb_ply++;
 
         // increment repetition index & store hash key
-        ///< ADD>
-        if (rb_repetition_index < 999)
-        {
-            ///</ADD>
-            rb_repetition_index++;
-            rb_repetition_table[rb_repetition_index] = rb_hash_key;
-            ///< ADD>
-        }
-        else
-            PrintAssert(rb_repetition_index < 999);
-        ///</ADD>
+        rb_add_to_repetition_table();
 
         // make sure to make only legal moves
-        if (rb_make_move(move_list->moves[count], only_captures) == 0)
+        if (rb_make_move(move_list->moves[count].move_score.bmove, only_captures) == 0)
         {
             // decrement ply
             rb_ply--;
 
             // decrement repetition index
-            rb_repetition_index--;
+            rb_remove_from_repetition_table();
 
             // skip to next move
             continue;
@@ -7306,7 +7293,7 @@ static inline int rb_quiescence(int alpha, int beta)
         rb_ply--;
 
         // decrement repetition index
-        rb_repetition_index--;
+        rb_remove_from_repetition_table();
 
         // take move back
         rb_take_back();
@@ -7332,16 +7319,9 @@ static inline int rb_quiescence(int alpha, int beta)
     return alpha;
 }
 
-// full depth moves counter
-const int lb_full_depth_moves = 4;
-const int rb_full_depth_moves = 4;
-
-// depth limit to consider reduction
-const int lb_reduction_limit = 3;
-const int rb_reduction_limit = 3;
 
 // negamax alpha beta search
-// leftboard
+// left board
 static inline int lb_negamax(int alpha, int beta, int depth)
 {
     // init PV length
@@ -7349,6 +7329,10 @@ static inline int lb_negamax(int alpha, int beta, int depth)
 
     // variable to store current move's score (from the static evaluation perspective)
     int score;
+
+    // add
+    // best move (to store in TT)
+    int best_move = 0;
 
     // define hash flag
     int hash_flag = hash_flag_alpha;
@@ -7363,7 +7347,7 @@ static inline int lb_negamax(int alpha, int beta, int depth)
 
     // read hash entry if we're not in a root ply and hash entry is available
     // and current node is not a PV node
-    if (lb_ply && (score = lb_read_hash_entry(alpha, beta, depth)) != no_hash_entry && pv_node == 0)
+    if (lb_ply && (score = lb_read_hash_entry(alpha, beta, &best_move, depth)) != no_hash_entry && pv_node == 0)
         // if the move has already been searched (hence has a value)
         // we just return the score for this move without searching it
         return score;
@@ -7397,6 +7381,22 @@ static inline int lb_negamax(int alpha, int beta, int depth)
     // legal moves counter
     int legal_moves = 0;
 
+    // add
+    // get static evaluation score
+    int static_eval = lb_evaluate();
+
+    // evaluation pruning / static null move pruning
+    if (depth < 3 && !pv_node && !in_check && abs(beta - 1) > -infinity + 100)
+    {
+        // define evaluation margin
+        int eval_margin = 120 * depth;
+
+        // evaluation margin substracted from static evaluation score fails high
+        if (static_eval - eval_margin >= beta)
+            // evaluation margin substracted from static evaluation score
+            return static_eval - eval_margin;
+    }
+
     // null move pruning
     if (depth >= 3 && in_check == 0 && lb_ply)
     {
@@ -7407,18 +7407,8 @@ static inline int lb_negamax(int alpha, int beta, int depth)
         lb_ply++;
 
         // increment repetition index & store hash key
-        ///< ADD>
-        if (lb_repetition_index < 999)
-        {
-            ///</ADD>
-            lb_repetition_index++;
-            lb_repetition_table[lb_repetition_index] = lb_hash_key;
-            ///< ADD>
-        }
-        else
-            PrintAssert(lb_repetition_index < 999);
-        ///</ADD>
-
+        lb_add_to_repetition_table();
+        
         // hash enpassant if available
         if (lb_enpassant != no_sq)
             lb_hash_key ^= lb_enpassant_keys[lb_enpassant];
@@ -7440,7 +7430,7 @@ static inline int lb_negamax(int alpha, int beta, int depth)
         lb_ply--;
 
         // decrement repetition index
-        lb_repetition_index--;
+        lb_remove_from_repetition_table();
 
         // restore board state
         lb_take_back();
@@ -7455,6 +7445,47 @@ static inline int lb_negamax(int alpha, int beta, int depth)
             return beta;
     }
 
+	// add
+    // razoring
+    if (!pv_node && !in_check && depth <= 3)
+    {
+        // get static eval and add first bonus
+        score = static_eval + 125;
+
+        // define new score
+        int new_score;
+
+        // static evaluation indicates a fail-low node
+        if (score < beta)
+        {
+            // on depth 1
+            if (depth == 1)
+            {
+                // get quiscence score
+                new_score = lb_quiescence(alpha, beta);
+
+                // return quiescence score if it's greater then static evaluation score
+                return (new_score > score) ? new_score : score;
+            }
+
+            // add second bonus to static evaluation
+            score += 175;
+
+            // static evaluation indicates a fail-low node
+            if (score < beta && depth <= 2)
+            {
+                // get quiscence score
+                new_score = lb_quiescence(alpha, beta);
+
+                // quiescence score indicates fail-low node
+                if (new_score < beta)
+                    // return quiescence score if it's greater then static evaluation score
+                    return (new_score > score) ? new_score : score;
+            }
+        }
+    }
+
+    
     // create move list instance
     moves_t move_list[1];
 
@@ -7467,7 +7498,7 @@ static inline int lb_negamax(int alpha, int beta, int depth)
         lb_enable_pv_scoring(move_list);
 
     // sort moves
-    lb_sort_moves(move_list);
+    lb_sort_moves(move_list, best_move);
 
     // number of moves searched in a move list
     int moves_searched = 0;
@@ -7482,26 +7513,16 @@ static inline int lb_negamax(int alpha, int beta, int depth)
         lb_ply++;
 
         // increment repetition index & store hash key
-        ///< ADD>
-        if (lb_repetition_index < 999)
-        {
-            ///</ADD>
-            lb_repetition_index++;
-            lb_repetition_table[lb_repetition_index] = lb_hash_key;
-            ///< ADD>
-        }
-        else
-            PrintAssert(lb_repetition_index < 999);
-        ///</ADD>
-
+        lb_add_to_repetition_table();
+        
         // make sure to make only legal moves
-        if (lb_make_move(move_list->moves[count], all_moves) == 0)
+        if (lb_make_move(move_list->moves[count].move_score.bmove, all_moves) == 0)
         {
             // decrement ply
             lb_ply--;
 
             // decrement repetition index
-            lb_repetition_index--;
+            lb_remove_from_repetition_table();
 
             // skip to next move
             continue;
@@ -7523,8 +7544,8 @@ static inline int lb_negamax(int alpha, int beta, int depth)
                 moves_searched >= lb_full_depth_moves &&
                 depth >= lb_reduction_limit &&
                 in_check == 0 &&
-                get_move_capture(move_list->moves[count]) == 0 &&
-                get_move_promoted(move_list->moves[count]) == 0)
+                get_move_capture(move_list->moves[count].move_score.bmove) == 0 &&
+                get_move_promoted(move_list->moves[count].move_score.bmove) == 0)
                 // search current move with reduced depth:
                 score = -lb_negamax(-alpha - 1, -alpha, depth - 2);
 
@@ -7557,12 +7578,12 @@ static inline int lb_negamax(int alpha, int beta, int depth)
         lb_ply--;
 
         // decrement repetition index
-        lb_repetition_index--;
+        lb_remove_from_repetition_table();
 
         // take move back
         lb_take_back();
 
-        // reutrn 0 if time is up
+        // return 0 if time is up
         if (lb_stopped == 1)
             return 0;
 
@@ -7576,16 +7597,20 @@ static inline int lb_negamax(int alpha, int beta, int depth)
             // to the one storing score for PV node
             hash_flag = hash_flag_exact;
 
+            // add
+            // store best move (for TT)
+            best_move = move_list->moves[count].move_score.bmove;
+
             // on quiet moves
-            if (get_move_capture(move_list->moves[count]) == 0)
+            if (get_move_capture(move_list->moves[count].move_score.bmove) == 0)
                 // store history moves
-                lb_history_moves[get_move_piece(move_list->moves[count])][get_move_target(move_list->moves[count])] += depth;
+                lb_history_moves[get_move_piece(move_list->moves[count].move_score.bmove)][get_move_target(move_list->moves[count].move_score.bmove)] += depth;
 
             // PV node (position)
             alpha = score;
 
             // write PV move
-            lb_pv_table[lb_ply][lb_ply] = move_list->moves[count];
+            lb_pv_table[lb_ply][lb_ply] = move_list->moves[count].move_score.bmove;
 
             // loop over the next ply
             for (int next_ply = lb_ply + 1; next_ply < lb_pv_length[lb_ply + 1]; next_ply++)
@@ -7598,15 +7623,16 @@ static inline int lb_negamax(int alpha, int beta, int depth)
             // fail-hard beta cutoff
             if (score >= beta)
             {
+                // add
                 // store hash entry with the score equal to beta
-                lb_write_hash_entry(beta, depth, hash_flag_beta);
+                lb_write_hash_entry(beta, best_move, depth, hash_flag_beta);
 
                 // on quiet moves
-                if (get_move_capture(move_list->moves[count]) == 0)
+                if (get_move_capture(move_list->moves[count].move_score.bmove) == 0)
                 {
                     // store killer moves
                     lb_killer_moves[1][lb_ply] = lb_killer_moves[0][lb_ply];
-                    lb_killer_moves[0][lb_ply] = move_list->moves[count];
+                    lb_killer_moves[0][lb_ply] = move_list->moves[count].move_score.bmove;
                 }
 
                 // node (position) fails high
@@ -7628,12 +7654,12 @@ static inline int lb_negamax(int alpha, int beta, int depth)
     }
 
     // store hash entry with the score equal to alpha
-    lb_write_hash_entry(alpha, depth, hash_flag);
+    lb_write_hash_entry(alpha, best_move, depth, hash_flag);
 
     // node (position) fails low
     return alpha;
 }
-// rightboard
+// right board
 static inline int rb_negamax(int alpha, int beta, int depth)
 {
     // init PV length
@@ -7641,6 +7667,10 @@ static inline int rb_negamax(int alpha, int beta, int depth)
 
     // variable to store current move's score (from the static evaluation perspective)
     int score;
+    
+    // add
+    // best move (to store in TT)
+    int best_move = 0;
 
     // define hash flag
     int hash_flag = hash_flag_alpha;
@@ -7655,7 +7685,7 @@ static inline int rb_negamax(int alpha, int beta, int depth)
 
     // read hash entry if we're not in a root ply and hash entry is available
     // and current node is not a PV node
-    if (rb_ply && (score = rb_read_hash_entry(alpha, beta, depth)) != no_hash_entry && pv_node == 0)
+    if (rb_ply && (score = rb_read_hash_entry(alpha, beta, &best_move, depth)) != no_hash_entry && pv_node == 0)
         // if the move has already been searched (hence has a value)
         // we just return the score for this move without searching it
         return score;
@@ -7689,6 +7719,22 @@ static inline int rb_negamax(int alpha, int beta, int depth)
     // legal moves counter
     int legal_moves = 0;
 
+	// add
+    // get static evaluation score
+    int static_eval = rb_evaluate();
+    
+    // evaluation pruning / static null move pruning
+    if (depth < 3 && !pv_node && !in_check && abs(beta - 1) > -infinity + 100)
+    {
+        // define evaluation margin
+        int eval_margin = 120 * depth;
+
+        // evaluation margin substracted from static evaluation score fails high
+        if (static_eval - eval_margin >= beta)
+            // evaluation margin substracted from static evaluation score
+            return static_eval - eval_margin;
+    }
+    
     // null move pruning
     if (depth >= 3 && in_check == 0 && rb_ply)
     {
@@ -7699,17 +7745,7 @@ static inline int rb_negamax(int alpha, int beta, int depth)
         rb_ply++;
 
         // increment repetition index & store hash key
-        ///< ADD>
-        if (rb_repetition_index < 999)
-        {
-            ///</ADD>
-            rb_repetition_index++;
-            rb_repetition_table[rb_repetition_index] = rb_hash_key;
-            ///< ADD>
-        }
-        else
-            PrintAssert(rb_repetition_index < 999);
-        ///</ADD>
+        rb_add_to_repetition_table();
 
         // hash enpassant if available
         if (rb_enpassant != no_sq)
@@ -7732,7 +7768,7 @@ static inline int rb_negamax(int alpha, int beta, int depth)
         rb_ply--;
 
         // decrement repetition index
-        rb_repetition_index--;
+        rb_remove_from_repetition_table();
 
         // restore board state
         rb_take_back();
@@ -7746,7 +7782,47 @@ static inline int rb_negamax(int alpha, int beta, int depth)
             // node (position) fails high
             return beta;
     }
+    
+    // add
+    // razoring
+    if (!pv_node && !in_check && depth <= 3)
+    {
+        // get static eval and add first bonus
+        score = static_eval + 125;
 
+        // define new score
+        int new_score;
+
+        // static evaluation indicates a fail-low node
+        if (score < beta)
+        {
+            // on depth 1
+            if (depth == 1)
+            {
+                // get quiscence score
+                new_score = rb_quiescence(alpha, beta);
+
+                // return quiescence score if it's greater then static evaluation score
+                return (new_score > score) ? new_score : score;
+            }
+
+            // add second bonus to static evaluation
+            score += 175;
+
+            // static evaluation indicates a fail-low node
+            if (score < beta && depth <= 2)
+            {
+                // get quiscence score
+                new_score = rb_quiescence(alpha, beta);
+
+                // quiescence score indicates fail-low node
+                if (new_score < beta)
+                    // return quiescence score if it's greater then static evaluation score
+                    return (new_score > score) ? new_score : score;
+            }
+        }
+    }
+    
     // create move list instance
     moves_t move_list[1];
 
@@ -7759,7 +7835,7 @@ static inline int rb_negamax(int alpha, int beta, int depth)
         rb_enable_pv_scoring(move_list);
 
     // sort moves
-    rb_sort_moves(move_list);
+    rb_sort_moves(move_list, best_move);
 
     // number of moves searched in a move list
     int moves_searched = 0;
@@ -7774,26 +7850,16 @@ static inline int rb_negamax(int alpha, int beta, int depth)
         rb_ply++;
 
         // increment repetition index & store hash key
-        ///< ADD>
-        if (rb_repetition_index < 999)
-        {
-            ///</ADD>
-            rb_repetition_index++;
-            rb_repetition_table[rb_repetition_index] = rb_hash_key;
-            ///< ADD>
-        }
-        else
-            PrintAssert(rb_repetition_index < 999);
-        ///</ADD>
-
+        rb_add_to_repetition_table();
+        
         // make sure to make only legal moves
-        if (rb_make_move(move_list->moves[count], all_moves) == 0)
+        if (rb_make_move(move_list->moves[count].move_score.bmove, all_moves) == 0)
         {
             // decrement ply
             rb_ply--;
 
             // decrement repetition index
-            rb_repetition_index--;
+            rb_remove_from_repetition_table();
 
             // skip to next move
             continue;
@@ -7815,8 +7881,8 @@ static inline int rb_negamax(int alpha, int beta, int depth)
                 moves_searched >= rb_full_depth_moves &&
                 depth >= rb_reduction_limit &&
                 in_check == 0 &&
-                get_move_capture(move_list->moves[count]) == 0 &&
-                get_move_promoted(move_list->moves[count]) == 0)
+                get_move_capture(move_list->moves[count].move_score.bmove) == 0 &&
+                get_move_promoted(move_list->moves[count].move_score.bmove) == 0)
                 // search current move with reduced depth:
                 score = -rb_negamax(-alpha - 1, -alpha, depth - 2);
 
@@ -7849,12 +7915,12 @@ static inline int rb_negamax(int alpha, int beta, int depth)
         rb_ply--;
 
         // decrement repetition index
-        rb_repetition_index--;
+        rb_remove_from_repetition_table();
 
         // take move back
         rb_take_back();
 
-        // reutrn 0 if time is up
+        // return 0 if time is up
         if (rb_stopped == 1)
             return 0;
 
@@ -7869,15 +7935,15 @@ static inline int rb_negamax(int alpha, int beta, int depth)
             hash_flag = hash_flag_exact;
 
             // on quiet moves
-            if (get_move_capture(move_list->moves[count]) == 0)
+            if (get_move_capture(move_list->moves[count].move_score.bmove) == 0)
                 // store history moves
-                rb_history_moves[get_move_piece(move_list->moves[count])][get_move_target(move_list->moves[count])] += depth;
+                rb_history_moves[get_move_piece(move_list->moves[count].move_score.bmove)][get_move_target(move_list->moves[count].move_score.bmove)] += depth;
 
             // PV node (position)
             alpha = score;
 
             // write PV move
-            rb_pv_table[rb_ply][rb_ply] = move_list->moves[count];
+            rb_pv_table[rb_ply][rb_ply] = move_list->moves[count].move_score.bmove;
 
             // loop over the next ply
             for (int next_ply = rb_ply + 1; next_ply < rb_pv_length[rb_ply + 1]; next_ply++)
@@ -7891,14 +7957,14 @@ static inline int rb_negamax(int alpha, int beta, int depth)
             if (score >= beta)
             {
                 // store hash entry with the score equal to beta
-                rb_write_hash_entry(beta, depth, hash_flag_beta);
+                rb_write_hash_entry(beta, best_move, depth, hash_flag_beta);
 
                 // on quiet moves
-                if (get_move_capture(move_list->moves[count]) == 0)
+                if (get_move_capture(move_list->moves[count].move_score.bmove) == 0)
                 {
                     // store killer moves
                     rb_killer_moves[1][rb_ply] = rb_killer_moves[0][rb_ply];
-                    rb_killer_moves[0][rb_ply] = move_list->moves[count];
+                    rb_killer_moves[0][rb_ply] = move_list->moves[count].move_score.bmove;
                 }
 
                 // node (position) fails high
@@ -7921,14 +7987,14 @@ static inline int rb_negamax(int alpha, int beta, int depth)
     }
 
     // store hash entry with the score equal to alpha
-    rb_write_hash_entry(alpha, depth, hash_flag);
+    rb_write_hash_entry(alpha, best_move, depth, hash_flag);
 
     // node (position) fails low
     return alpha;
 }
 
 // search position for the best move
-// leftboard
+// left board
 void lb_search_position(int depth)
 {
 #ifndef NDEBUG // print only in debug mode
@@ -8031,7 +8097,7 @@ void lb_search_position(int depth)
         printf("no bestmove found\n");
 #endif
 }
-// rightboard
+// right board
 void rb_search_position(int depth)
 {
 #ifndef NDEBUG // print only in debug mode
@@ -8137,7 +8203,7 @@ void rb_search_position(int depth)
 }
 
 // reset time control variables
-// leftboard
+// left board
 void lb_reset_time_control()
 {
     // reset timing
@@ -8151,7 +8217,7 @@ void lb_reset_time_control()
     lb_timeset = 0;
     lb_stopped = 0;
 }
-// rightboard
+// right board
 void rb_reset_time_control()
 {
     // reset timing
@@ -8175,7 +8241,7 @@ void rb_reset_time_control()
 \**********************************/
 
 // init all variables
-// leftboard
+// left board
 void lb_init_all()
 {
     // init leaper pieces attacks
@@ -8194,7 +8260,7 @@ void lb_init_all()
     // init hash table with default 128 MB
     lb_init_hash_table(128);
 }
-// rightboard
+// right board
 void rb_init_all()
 {
     // init leaper pieces attacks
@@ -8215,7 +8281,7 @@ void rb_init_all()
 }
 
 // -----------------------------------------------------------------------
-// End BBC code
+// End Engine code
 // -----------------------------------------------------------------------
 
 // -----------------------------------------------------------------------
@@ -8251,6 +8317,8 @@ enum
     bDrawPat = 7, // draw by black king is pat
     DrawRep = 8,  // draw by repeat moves rule
     Draw50 = 9,   // draw by 50 moves rule
+    wResign = 10, // black wins, white resigned
+    bResign = 11, // white wins, black resigned
 };
 
 // -----------------------------------------------------------------------
@@ -8264,27 +8332,22 @@ int game_time = 10;
 int game_state = Input;
 
 // draw sizes
-const int SQUARE_SIZE = 72;
-const int HALF_SQUARE_SIZE = 36;
-const int BOARD_SIZE = 576;
-const int SCREEN_WIDTH = 1440;
-const int SCREEN_HEIGHT = 864;
-const int LARGE_PIECE_SIZE = 64;
-const int SMALL_PIECE_SIZE = 32;
+#define SQUARE_SIZE 72
+#define HALF_SQUARE_SIZE 36
+#define BOARD_SIZE 576
+#define SCREEN_WIDTH 1440
+#define SCREEN_HEIGHT 864
+#define LARGE_PIECE_SIZE 64
+#define SMALL_PIECE_SIZE 32
 
-// pictures
-Texture2D board;
-Texture2D large_pieces[12];
-Texture2D small_pieces[12];
-Texture2D choice;
-Texture2D enterbtn;
-Texture2D plusminbtn;
-Texture2D chessclock;
-Texture2D ai_image;
-Texture2D human_image;
+// time settings
+#define MAX_TIME 60
+#define MIN_TIME 5
+#define MAX_PLUS 30
+#define MIN_PLUS 0
 
 // title
-const char *title = "ChessPassTrough in Raylib-C (C)2025 Peter Veenendaal; versie: 0.92";
+const char *title = "ChessPassTrough in Raylib-C (C)2025 Peter Veenendaal; versie: 0.93";
 
 // name of the image pictures
 const char *pieces[12] = {
@@ -8303,17 +8366,19 @@ const char *pieces[12] = {
 };
 
 // text to print when the game is finished
-const char *text_game_end[10] = {
+const char *text_game_end[12] = {
     "",
-    "wit wint, zwart staat schaakmat",
-    "wit wint, zwart heeft geen bedenktijd meer",
     "zwart wint, wit staat schaakmat",
     "zwart wint, wit heeft geen bedenktijd meer",
+    "wit wint, zwart staat schaakmat",
+    "wit wint, zwart heeft geen bedenktijd meer",
     "het is remise door materiaal",
     "wit staat pat, het is remise",
     "zwart staat pat, het is remise",
     "het is remise door 3 zetten regel",
-    "het is remise door 50 zetten regel"};
+    "het is remise door 50 zetten regel",
+    "zwart wint, wit geeft op",
+    "Wit wint, zwart geeft op"};
 
 // promoted pieces to draw
 const int promote_pieces[2][4] = {
@@ -8371,14 +8436,24 @@ const char *number[10] = {"0", "1", "2", "3", "4", "5", "6", "7", "8", "9"};
 // -----------------------------------------------------------------------
 
 // variables
+// pictures
+Texture2D board;
+Texture2D large_pieces[12];
+Texture2D small_pieces[12];
+Texture2D choice;
+Texture2D enterbtn;
+Texture2D plusminbtn;
+Texture2D chessclock;
+Texture2D ai_image;
+Texture2D human_image;
 
 // start column board
-int lb_brd_col = SQUARE_SIZE;
-int rb_brd_col = BOARD_SIZE + SQUARE_SIZE * 3;
+int lb_brd_col; // = SQUARE_SIZE;
+int rb_brd_col; // = BOARD_SIZE + SQUARE_SIZE * 3;
 
 // start row board
-int lb_brd_row = SQUARE_SIZE * 2;
-int rb_brd_row = SQUARE_SIZE * 2;
+int lb_brd_row; // = SQUARE_SIZE * 2;
+int rb_brd_row; // = SQUARE_SIZE * 2;
 
 // used for printing the board in the gui
 int lb_drawboard[64];
@@ -8389,32 +8464,40 @@ int lb_drawcappieces[11];
 int rb_drawcappieces[11];
 
 // square from
-int lb_selectpiece = -1;
-int rb_selectpiece = -1;
+int lb_selectpiece; // = -1;
+int rb_selectpiece; // = -1;
 
 // square to
-int lb_selectsquare = -1;
-int rb_selectsquare = -1;
+int lb_selectsquare; // = -1;
+int rb_selectsquare; // = -1;
 
 // select cap piece
-int lb_capselectpiece = -1;
-int rb_capselectpiece = -1;
+int lb_capselectpiece; // = -1;
+int rb_capselectpiece; // = -1;
 
 // promotion flag
-int lb_promotion = 0;
-int rb_promotion = 0;
+int lb_promotion; // = 0;
+int rb_promotion; // = 0;
 
 // promotion choice
-int lb_promotionmove = -1;
-int rb_promotionmove = -1;
+int lb_promotionmove; // = -1;
+int rb_promotionmove; // = -1;
 
 // current game state
-int lb_gamestate = StartGame;
-int rb_gamestate = StartGame;
+int lb_gamestate; // = StartGame;
+int rb_gamestate; // = StartGame;
 
-// reason the gam ends
-int lb_game_end = 0;
-int rb_game_end = 0;
+// reason the game ends
+int lb_game_end; // = 0;
+int rb_game_end; // = 0;
+
+// last move played by white or black
+int lb_last_move[2];
+int rb_last_move[2];
+
+// move counter for black or white
+int lb_move_counter[2];
+int rb_move_counter[2];
 
 // list of moves used in the gui
 moves_t lb_gui_move_list[1];
@@ -8443,7 +8526,7 @@ int rb_human_player;
 // for counting the moves executed white or black
 int lb_count_game_moves[2];
 int rb_count_game_moves[2];
-
+ 
 // variables for the chessclock
 
 // flag if the clock is pressed
@@ -8451,12 +8534,12 @@ int lb_press_clock;
 int rb_press_clock;
 
 // to handle the used time in secondsclear
-int lb_timer[2];
-int rb_timer[2];
+int lb_timer[2]; // = {600, 600};
+int rb_timer[2]; // = {600, 600};
 
 // add time after each move in seconds
-int lb_plustimer[2];
-int rb_plustimer[2];
+int lb_plustimer[2]; // = {0, 0};
+int rb_plustimer[2]; // = {0, 0};
 
 // for drawing the time on the clock
 int lb_clocktime[2][5];
@@ -8495,26 +8578,225 @@ static int rb_task_ready;
 // check for draw by repetition
 
 // hashkey after every move
-U64 lb_game_hashkey[1000];
-U64 rb_game_hashkey[1000];
+U64 lb_game_hashkey[REPETITION_TABLE_SIZE];
+U64 rb_game_hashkey[REPETITION_TABLE_SIZE];
 
 // index of the array
 int lb_game_hashkey_index;
 int rb_game_hashkey_index;
 
 // position change flag
-int lb_position_chg = 0;
-int rb_position_chg = 0;
-
-// last move played by white or black
-int lb_last_move[2];
-int rb_last_move[2];
-
+int lb_position_chg; // = 0;
+int rb_position_chg; // = 0;
 
 // methods
 
+// add hashkey to the array for repetition detection
+// left board
+static inline void lb_add_to_game_hashkey()
+{
+    // make sure we don't exceed the array size for repetition detection
+    PrintAssert(lb_game_hashkey_index < REPETITION_TABLE_SIZE);
+    
+    // add hashkey to the array for repetition detection
+    lb_game_hashkey[lb_game_hashkey_index] = lb_hash_key;
+
+    // increment the index for the next move
+    lb_game_hashkey_index++;
+}
+
+// right board
+static inline void rb_add_to_game_hashkey()
+{
+    // make sure we don't exceed the array size for repetition detection
+    PrintAssert(rb_game_hashkey_index < REPETITION_TABLE_SIZE);
+    
+    // add hashkey to the array for repetition detection
+    rb_game_hashkey[rb_game_hashkey_index] = rb_hash_key;
+
+    // increment the index for the next move
+    rb_game_hashkey_index++;
+}
+
+// init gui data
+// left board
+void lb_init_gui_data()
+{
+    // IMAGES ARE LOADED IN THE MAIN FUNCTION AFTER INITIALIZATION OF RAYLIB
+    // init board position for drawing
+    for (int square = 0; square < 64; square++)
+        lb_drawboard[square] = no_sq;
+
+    // init other variables
+    lb_brd_col = SQUARE_SIZE;
+    lb_brd_row = SQUARE_SIZE * 2;
+    lb_selectpiece = -1;
+    lb_selectsquare = -1;
+    lb_promotion = 0;
+    lb_promotionmove = -1;
+    lb_gamestate = StartGame;
+    lb_game_end = 0;
+    memset(lb_last_move, -1, sizeof(lb_last_move));
+    memset(lb_move_counter, 0, sizeof(lb_move_counter));
+    memset(lb_move_options, 0ULL, sizeof(lb_move_options));
+    memset(lb_piece_options, 0ULL, sizeof(lb_piece_options));
+    memset(lb_game_hashkey, 0ULL, sizeof(lb_game_hashkey));
+    lb_game_hashkey_index = 0;
+
+    // timer settings
+    lb_press_clock = 0;
+    lb_timer[0] = 600;
+    lb_timer[1] = 600;
+    memset(lb_plustimer, 0, sizeof(lb_plustimer));
+    memset(lb_clocktime, 0, sizeof(lb_clocktime));
+    memset(lb_starttimer, 0, sizeof(lb_starttimer));
+    memset(lb_thinktimer, 0, sizeof(lb_thinktimer));
+    lb_side2move = 0;
+}
+
+// right board
+void rb_init_gui_data()
+{
+    // IMAGES ARE LOADED IN THE MAIN FUNCTION AFTER INITIALIZATION OF RAYLIB
+    // init board position for drawing
+    for (int square = 0; square < 64; square++)
+        rb_drawboard[square] = no_sq;
+
+    // init other variables
+    rb_brd_col = BOARD_SIZE + SQUARE_SIZE * 3;
+    rb_brd_row = SQUARE_SIZE * 2;
+    rb_selectpiece = -1;
+    rb_selectsquare = -1;
+    rb_promotion = 0;
+    rb_promotionmove = -1;
+    rb_gamestate = StartGame;
+    rb_game_end = 0;
+    memset(rb_last_move, -1, sizeof(rb_last_move));
+    memset(rb_move_counter, 0, sizeof(rb_move_counter));
+    memset(rb_move_options, 0ULL, sizeof(rb_move_options));
+    memset(rb_piece_options, 0ULL, sizeof(rb_piece_options));
+    memset(rb_game_hashkey, 0ULL, sizeof(rb_game_hashkey));
+    rb_game_hashkey_index = 0;
+
+    // timer settings
+    rb_press_clock = 0;
+    rb_timer[0] = 600;
+    rb_timer[1] = 600;
+    memset(rb_plustimer, 0, sizeof(rb_plustimer));
+    memset(rb_clocktime, 0, sizeof(rb_clocktime));
+    memset(rb_starttimer, 0, sizeof(rb_starttimer));
+    memset(rb_thinktimer, 0, sizeof(rb_thinktimer));
+    rb_side2move = 0;
+}
+
+// string tools
+
+// integer to string
+// left board
+void lb_intToStr(int N, char *str)
+{
+    int i = 0;
+
+    // Save the copy of the number for sign
+    int sign = N;
+
+    // If the number is negative, make it positive
+    if (N < 0)
+        N = -N;
+
+    // Extract digits from the number and add them to the
+    // string
+    while (N > 0)
+    {
+
+        // Convert integer digit to character and store
+        // it in the str
+        str[i++] = N % 10 + '0';
+        N /= 10;
+    }
+
+    // If the number was negative, add a minus sign to the
+    // string
+    if (sign < 0)
+    {
+        str[i++] = '-';
+    }
+
+    // Null-terminate the string
+    str[i] = '\0';
+
+    // Reverse the string to get the correct order
+    for (int j = 0, k = i - 1; j < k; j++, k--)
+    {
+        char temp = str[j];
+        str[j] = str[k];
+        str[k] = temp;
+    }
+}
+
+// right board
+void rb_intToStr(int N, char *str)
+{
+    int i = 0;
+
+    // Save the copy of the number for sign
+    int sign = N;
+
+    // If the number is negative, make it positive
+    if (N < 0)
+        N = -N;
+
+    // Extract digits from the number and add them to the
+    // string
+    while (N > 0)
+    {
+
+        // Convert integer digit to character and store
+        // it in the str
+        str[i++] = N % 10 + '0';
+        N /= 10;
+    }
+
+    // If the number was negative, add a minus sign to the
+    // string
+    if (sign < 0)
+    {
+        str[i++] = '-';
+    }
+
+    // Null-terminate the string
+    str[i] = '\0';
+
+    // Reverse the string to get the correct order
+    for (int j = 0, k = i - 1; j < k; j++, k--)
+    {
+        char temp = str[j];
+        str[j] = str[k];
+        str[k] = temp;
+    }
+}
+
+// concatenate 2 strings
+// left board
+char *lb_concat(const char *s1, const char *s2)
+{
+    char *result = malloc(strlen(s1) + strlen(s2) + 1); // +1 for the null-terminator
+    strcpy(result, s1);
+    strcat(result, s2);
+    return result;
+}
+
+// right board
+char *rb_concat(const char *s1, const char *s2)
+{
+    char *result = malloc(strlen(s1) + strlen(s2) + 1); // +1 for the null-terminator
+    strcpy(result, s1);
+    strcat(result, s2);
+    return result;
+}
+
 // Fill the time for on the chessclock per color
-// leftboard
+// left board
 void lb_fill_clocktime(int col)
 {
     int hr = (int)(lb_timer[col] / 3600);
@@ -8527,7 +8809,7 @@ void lb_fill_clocktime(int col)
     lb_clocktime[col][1] = (int)((min - lb_clocktime[col][2]) / 10);
     lb_clocktime[col][0] = hr;
 }
-// rightboard
+// right board
 void rb_fill_clocktime(int col)
 {
     int hr = (int)(rb_timer[col] / 3600);
@@ -8542,7 +8824,7 @@ void rb_fill_clocktime(int col)
 }
 
 // fill the movelist and options tables
-// leftboard
+// left board
 void lb_fillOptions(moves_t *move_list, U64 *move_options, U64 *piece_options, U64 *cap_piece_options)
 {
     // reset move options
@@ -8556,9 +8838,6 @@ void lb_fillOptions(moves_t *move_list, U64 *move_options, U64 *piece_options, U
 
     // generate moves
     lb_generate_moves(move_list);
-#ifndef NDEBUG
-    lb_print_move_list(move_list);
-#endif
 
     for (int index = 0; index < move_list->count; ++index)
     {
@@ -8566,7 +8845,7 @@ void lb_fillOptions(moves_t *move_list, U64 *move_options, U64 *piece_options, U
         lb_copy_board();
 
         // get move data
-        int move = move_list->moves[index];
+        int move = move_list->moves[index].move_score.bmove;
         int sqf = get_move_source(move);
         int sqt = get_move_target(move);
         int piece = get_move_piece(move);
@@ -8587,7 +8866,7 @@ void lb_fillOptions(moves_t *move_list, U64 *move_options, U64 *piece_options, U
         lb_take_back();
     }
 }
-// rightboard
+// right board
 void rb_fillOptions(moves_t *move_list, U64 *move_options, U64 *piece_options, U64 *cap_piece_options)
 {
     // reset move options
@@ -8601,16 +8880,14 @@ void rb_fillOptions(moves_t *move_list, U64 *move_options, U64 *piece_options, U
 
     // generate moves
     rb_generate_moves(move_list);
-#ifndef NDEBUG
-    rb_print_move_list(move_list);
-#endif
+
     for (int index = 0; index < move_list->count; ++index)
     {
         // preserve the board
         rb_copy_board();
 
         // get move data
-        int move = move_list->moves[index];
+        int move = move_list->moves[index].move_score.bmove;
         int sqf = get_move_source(move);
         int sqt = get_move_target(move);
         int piece = get_move_piece(move);
@@ -8633,7 +8910,7 @@ void rb_fillOptions(moves_t *move_list, U64 *move_options, U64 *piece_options, U
 }
 
 // Get piece on the square for drawing
-// leftboard
+// left board
 int lb_getPiece(int square)
 {
     if (get_bit(lb_occupancies[both], square))
@@ -8648,7 +8925,7 @@ int lb_getPiece(int square)
     }
     return no_sq;
 }
-// rightboard
+// right board
 int rb_getPiece(int square)
 {
     if (get_bit(rb_occupancies[both], square))
@@ -8665,7 +8942,7 @@ int rb_getPiece(int square)
 }
 
 // get the captured piecs for drawing captured pieces
-// leftboard
+// left board
 void lb_getCapturedPieces()
 {
     for (int i = 0; i < 11; ++i)
@@ -8679,7 +8956,7 @@ void lb_getCapturedPieces()
         }
     }
 }
-// rightboard
+// right board
 void rb_getCapturedPieces()
 {
     for (int i = 0; i < 11; ++i)
@@ -8694,15 +8971,15 @@ void rb_getCapturedPieces()
     }
 }
 
-// do the (best)move 
-// leftboard
+// make the move from the human player
+// left board
 int lb_doMove(moves_t *move_list, int sqf, int sqt, int promotionpiece)
 {
     int move = -1;
     for (int index = 0; index < move_list->count; ++index)
     {
         // add move data
-        move = move_list->moves[index];
+        move = move_list->moves[index].move_score.bmove;
         int sqrf = get_move_source(move);
         int sqrt = get_move_target(move);
         int pp = get_move_promoted(move);
@@ -8739,14 +9016,14 @@ int lb_doMove(moves_t *move_list, int sqf, int sqt, int promotionpiece)
     ++lb_count_game_moves[lb_side2move];
     return 1;
 }
-// rightboard 
+// right board 
 int rb_doMove(moves_t *move_list, int sqf, int sqt, int promotionpiece)
 {
     int move = -1;
     for (int index = 0; index < move_list->count; ++index)
     {
         // add move data
-        move = move_list->moves[index];
+        move = move_list->moves[index].move_score.bmove;
         int sqrf = get_move_source(move);
         int sqrt = get_move_target(move);
         int pp = get_move_promoted(move);
@@ -8785,7 +9062,7 @@ int rb_doMove(moves_t *move_list, int sqf, int sqt, int promotionpiece)
 }
 
 // remove a piece from the cap_pieces_list
-// leftboard
+// left board
 void lb_remove_cap_piece(int piece)
 {
     int index = -1;
@@ -8807,7 +9084,7 @@ void lb_remove_cap_piece(int piece)
         lb_cap_pieces[i] = lb_cap_pieces[i + 1];
     --lb_cap_pieces_count;
 }
-// rightboard
+// right board
 void rb_remove_cap_piece(int piece)
 {
     int index = -1;
@@ -8831,7 +9108,7 @@ void rb_remove_cap_piece(int piece)
 }
 
 // make the put move from the human player
-// leftboard
+// left board
 int lb_doPutMove(moves_t *move_list, int sqt, int putpiece)
 {
     int move = -1;
@@ -8839,7 +9116,7 @@ int lb_doPutMove(moves_t *move_list, int sqt, int putpiece)
     for (int index = 0; index < move_list->count; ++index)
     {
         // add move data
-        move = move_list->moves[index];
+        move = move_list->moves[index].move_score.bmove;
         sqrf = get_move_source(move);
         sqrt = get_move_target(move);
         piece = get_move_piece(move);
@@ -8868,7 +9145,7 @@ int lb_doPutMove(moves_t *move_list, int sqt, int putpiece)
     ++lb_count_game_moves[lb_side2move];
     return 1;
 }
-// rightboard
+// right board
 int rb_doPutMove(moves_t *move_list, int sqt, int putpiece)
 {
     int move = -1;
@@ -8876,7 +9153,7 @@ int rb_doPutMove(moves_t *move_list, int sqt, int putpiece)
     for (int index = 0; index < move_list->count; ++index)
     {
         // add move data
-        move = move_list->moves[index];
+        move = move_list->moves[index].move_score.bmove;
         sqrf = get_move_source(move);
         sqrt = get_move_target(move);
         piece = get_move_piece(move);
@@ -8907,7 +9184,7 @@ int rb_doPutMove(moves_t *move_list, int sqt, int putpiece)
 }
 
 // calculate the best move for the ai in a seperate thread
-// leftboard
+// left board
 void *lb_task(void *arg)
 {
     lb_task_ready = 0;
@@ -8933,7 +9210,7 @@ void *lb_task(void *arg)
     lb_task_ready = 1;
     return NULL;
 }
-// rightboard
+// right board
 void *rb_task(void *arg)
 {
     rb_task_ready = 0;
@@ -9197,7 +9474,7 @@ void rb_draw_board()
 }
 
 // get the sqrx
-// leftboard
+// left board
 int lb_get_sqrx(int col, int min)
 {
     int n = min;
@@ -9209,7 +9486,7 @@ int lb_get_sqrx(int col, int min)
     }
     return -9;
 }
-// rightboard
+// right board
 int rb_get_sqrx(int col, int min)
 {
     int n = min;
@@ -9223,7 +9500,7 @@ int rb_get_sqrx(int col, int min)
 }
 
 // get the sqry
-// leftboard
+// left board
 int lb_get_sqry(int row)
 {
     int n = 0;
@@ -9235,7 +9512,7 @@ int lb_get_sqry(int row)
     }
     return -9;
 }
-// rightboard
+// right board
 int rb_get_sqry(int row)
 {
     int n = 0;
@@ -9252,7 +9529,7 @@ int rb_get_sqry(int row)
 // by checkmate, stalemate or
 // a draw by the 50 moves rule
 // or a draw by 3 times repetition
-// leftboard
+// left board
 void lb_game_end_check()
 {
     // checkmate or stalemate
@@ -9291,11 +9568,9 @@ void lb_game_end_check()
         return;
     }
 
-    if (lb_game_hashkey_index < 999)
-        lb_game_hashkey[lb_game_hashkey_index++] = lb_hash_key;
-    else
-        PrintAssert(lb_game_hashkey_index < 999);
-
+	// 3 times repetition ?
+    lb_add_to_game_hashkey();
+    
     int counter = 0;
     // loop over game haskey range
     for (int index = 0; index < lb_game_hashkey_index; ++index)
@@ -9308,11 +9583,57 @@ void lb_game_end_check()
                 lb_game_end = DrawRep;
                 if (rb_gamestate == StopGame)
                     game_state = StopGame;
-                break;
+                return;
             }
         }
+	
+	// material
+    int count_pieces[12] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+    int total_pieces[2] = {0, 0};
+    int draw = 0;
+
+    // count the pieces per piecetype
+    for (int i = P; i <= k; ++i)
+    {
+        count_pieces[i] = lb_count_bits(lb_bitboards[i]);
+        if (i <= K)
+            total_pieces[white] += count_pieces[i];
+        else
+            total_pieces[black] += count_pieces[i];
+    }
+	
+	if (rb_gamestate == StopGame && lb_cap_pieces_count == 0)
+    {
+    	if (total_pieces[white] == 1)
+	    {
+	        if (total_pieces[black] == 1)
+	            draw = 1;
+	        else if (total_pieces[black] == 2 && (count_pieces[n] == 1 || count_pieces[b] == 1))
+	            draw = 1;
+	        else if (total_pieces[black] == 3 && (count_pieces[n] == 2))
+	            draw = 1;
+	    }
+	    if (total_pieces[black] == 1)
+	    {
+	    	if (total_pieces[white] == 1)
+	            draw = 1;
+	        else if (total_pieces[white] == 2 && (count_pieces[N] == 1 || count_pieces[B] == 1))
+	            draw = 1;
+	        else if (total_pieces[white] == 3 && (count_pieces[N] == 2))
+	            draw = 1;
+	    }
+	}
+	
+    if (draw)
+    {
+        lb_gamestate = StopGame;
+        lb_game_end = drawMat;
+        if (rb_gamestate == StopGame)
+        	game_state = StopGame;
+    }
 }
-// rightboard
+
+// right board
 void rb_game_end_check()
 {
     // checkmate or stalemate ?
@@ -9350,13 +9671,9 @@ void rb_game_end_check()
     }
 
     // 3 times repetition ?
-    if (rb_game_hashkey_index < 999)
-        rb_game_hashkey[rb_game_hashkey_index++] = rb_hash_key;
-    else
-        PrintAssert(rb_game_hashkey_index < 999);
-
+    rb_add_to_game_hashkey();
+    
     int counter = 0;
-
     // loop over game haskey range
     for (int index = 0; index < rb_game_hashkey_index; ++index)
         if (rb_game_hashkey[index] == rb_hash_key)
@@ -9368,13 +9685,57 @@ void rb_game_end_check()
                 rb_game_end = DrawRep;
                 if (lb_gamestate == StopGame)
                     game_state = StopGame;
-                break;
+                return;
             }
         }
+        
+    // material
+    int count_pieces[12] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+    int total_pieces[2] = {0, 0};
+    int draw = 0;
+
+    // count the pieces per piecetype
+    for (int i = P; i <= k; ++i)
+    {
+        count_pieces[i] = rb_count_bits(rb_bitboards[i]);
+        if (i <= K)
+            total_pieces[white] += count_pieces[i];
+        else
+            total_pieces[black] += count_pieces[i];
+    }
+	
+	if (lb_gamestate == StopGame && rb_cap_pieces_count == 0)
+    {
+    	if (total_pieces[white] == 1)
+	    {
+	        if (total_pieces[black] == 1)
+	            draw = 1;
+	        else if (total_pieces[black] == 2 && (count_pieces[n] == 1 || count_pieces[b] == 1))
+	            draw = 1;
+	        else if (total_pieces[black] == 3 && (count_pieces[n] == 2))
+	            draw = 1;
+	    }
+	    if (total_pieces[black] == 1)
+	    {
+	    	if (total_pieces[white] == 1)
+	            draw = 1;
+	        else if (total_pieces[white] == 2 && (count_pieces[N] == 1 || count_pieces[B] == 1))
+	            draw = 1;
+	        else if (total_pieces[white] == 3 && (count_pieces[N] == 2))
+	            draw = 1;
+	    }
+	}
+	if (draw)
+    {
+        rb_gamestate = StopGame;
+        rb_game_end = drawMat;
+        if (lb_gamestate == StopGame)
+        	game_state = StopGame;
+    }
 }
 
 // process a move made
-// leftboard
+// left board
 void lb_process_a_move()
 {
     lb_selectpiece = -1;
@@ -9398,7 +9759,7 @@ void lb_process_a_move()
         lb_press_clock = 1;
     }
 }
-// rightboard
+// right board
 void rb_process_a_move()
 {
     rb_selectpiece = -1;
@@ -9424,7 +9785,7 @@ void rb_process_a_move()
 }
 
 // Handle the mouse click
-// leftboard
+// left board
 void lb_process_mouseclick(int x, int y)
 {
     if (lb_gamestate != PlayGame)
@@ -9554,7 +9915,7 @@ void lb_process_mouseclick(int x, int y)
         }
     }
 }
-// rightboard
+// right board
 void rb_process_mouseclick(int x, int y)
 {
     if (rb_gamestate != PlayGame)
@@ -9685,7 +10046,7 @@ void rb_process_mouseclick(int x, int y)
 }
 
 // Draw clock time
-// leftboard
+// left board
 void lb_draw_clocktime(int posx, int posy)
 {
     char *mid = ":";
@@ -9708,7 +10069,7 @@ void lb_draw_clocktime(int posx, int posy)
     DrawText(number[lb_clocktime[black][3]], posx + 124, posy + 34, 15, BLACK);
     DrawText(number[lb_clocktime[black][4]], posx + 134, posy + 34, 15, BLACK);
 }
-// rightboard
+// right board
 void rb_draw_clocktime(int posx, int posy)
 {
     char *mid = ":";
@@ -9733,7 +10094,7 @@ void rb_draw_clocktime(int posx, int posy)
 }
 
 // set the game data
-// leftboard
+// left board
 void lb_setup_game()
 {
     lb_selectpiece = -1;
@@ -9785,7 +10146,7 @@ void lb_setup_game()
         lb_drawboard[i] = lb_getPiece(i);
     game_state = StartGame;
 }
-// rightboard
+// right board
 void rb_setup_game()
 {
     rb_selectpiece = -1;
@@ -9838,68 +10199,51 @@ void rb_setup_game()
     game_state = StartGame;
 }
 
-// string tools
-// integer to string
-void intToStr(int N, char *str)
+// initialize the game data
+void init_game()
 {
-    if (!str) return;
-    long long n = N; // voorkomt overflow bij INT_MIN
+    // init all variables
+    lb_init_all();
+    rb_init_all();
 
-    int i = 0;
+    lb_fill_clocktime(white);
+    lb_fill_clocktime(black);
+	rb_fill_clocktime(white);
+    rb_fill_clocktime(black);
 
-    if (n == 0)
-    {
-        str[0] = '0';
-        str[1] = '\0';
-        return;
-    }
-
-    int neg = (n < 0);
-    if (neg) n = -n;
-
-    while (n > 0)
-    {
-        str[i++] = (char)('0' + (n % 10));
-        n /= 10;
-    }
-
-    if (neg) str[i++] = '-';
-    str[i] = '\0';
-
-    for (int j = 0, k = i - 1; j < k; ++j, --k)
-    {
-        char t = str[j];
-        str[j] = str[k];
-        str[k] = t;
-    }
+    lb_init_gui_data();
+    rb_init_gui_data();
 }
 
-// concatenate 2 strings
-char *concat(const char *s1, const char *s2)
+// free memory on exit
+void exit_game()
 {
-    enum { CONCAT_SLOTS = 128, CONCAT_BUF_SIZE = 256 };
-    static char buffers[CONCAT_SLOTS][CONCAT_BUF_SIZE];
-    static unsigned int slot = 0;
-
-    char *out = buffers[slot++ % CONCAT_SLOTS];
-    if (!s1) s1 = "";
-    if (!s2) s2 = "";
-
-    snprintf(out, CONCAT_BUF_SIZE, "%s%s", s1, s2);
-    return out;
+    // free memory for hash_table
+#ifndef NDEBUG // print only in debug mode
+    printf("freeing memory for hash_table\n");
+#endif
+    if (lb_hash_table != NULL)
+        free(lb_hash_table);
+    lb_hash_table = NULL;
+	if (rb_hash_table != NULL)
+        free(rb_hash_table);
+    lb_hash_table = NULL;
 }
 
 // Start program
 int main()
 {
+    // set the init and exit functions for the game
+    pfnExit = exit_game;
+    pfnInit = init_game;
+
+    // call the init function to initialize the game
+    pfnInit();
+
     // set engine on or off
     int use_lb_engine = 1;
     int use_rb_engine = 1;
     
-    // init all
-    lb_init_all();
-    rb_init_all();
-
     // initialize raylib
     InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, title);
     // load images and set sizes
@@ -10060,9 +10404,9 @@ int main()
             // time choice
             DrawTexture(choice, SQUARE_SIZE * 5, SQUARE_SIZE * 9, RAYWHITE);
             char minstr[16] = {0}; // was: malloc
-            intToStr(game_time, minstr);    
-            char *text = concat("Bedenktijd :", minstr);
-            char *text1 = concat(text, " min (5..30)");
+            lb_intToStr(game_time, minstr);    
+            char *text = lb_concat("Bedenktijd :", minstr);
+            char *text1 = lb_concat(text, " min (5..30)");
             DrawText(
                 text1,
                 SQUARE_SIZE,
@@ -10070,9 +10414,9 @@ int main()
                 20,
                 YELLOW);
             char plusstr[16] = {0}; // was: malloc
-            intToStr(game_plus, plusstr);
-            char *text2 = concat("Per zet :", plusstr);
-            char *text3 = concat(text2, " sec (0..15)");
+            lb_intToStr(game_plus, plusstr);
+            char *text2 = lb_concat("Per zet :", plusstr);
+            char *text3 = lb_concat(text2, " sec (0..15)");
             // plus time choice
             DrawTexture(plusminbtn, SQUARE_SIZE * 5, SQUARE_SIZE * 10, RAYWHITE);
             DrawText(
@@ -10266,11 +10610,11 @@ int main()
 
         // draw the last move played
         // for black
-        // leftboard
+        // left board
         if (lb_count_game_moves[black] > 0)
         {
             char text0[3];
-            intToStr(lb_count_game_moves[black], text0);
+            lb_intToStr(lb_count_game_moves[black], text0);
             int sqf = get_move_source(lb_last_move[black]);
             int sqt = get_move_target(lb_last_move[black]);
             int pic = get_move_piece(lb_last_move[black]);
@@ -10309,8 +10653,8 @@ int main()
             } 
             else if (sqf == sqt) // put_move 
             {
-                char *text1 = concat(pstr[pic], " -->");
-                char *text2 = concat(text1, lb_square_to_coordinates[sqt]);
+                char *text1 = lb_concat(pstr[pic], " -->");
+                char *text2 = lb_concat(text1, lb_square_to_coordinates[sqt]);
                 DrawText(
                     text2,
                     posx + 30,
@@ -10321,13 +10665,13 @@ int main()
             else // normal move
             {
                 char *capstr = cap ? "x" : "-";
-                char *text1 = concat(pstr[pic], lb_square_to_coordinates[sqf]); 
-                char *text2 = concat(text1, capstr);
-                char *text3 = concat(text2, lb_square_to_coordinates[sqt]);
-                char *prostr = pp ? concat("=", pstr[pp]) : " ";
+                char *text1 = lb_concat(pstr[pic], lb_square_to_coordinates[sqf]); 
+                char *text2 = lb_concat(text1, capstr);
+                char *text3 = lb_concat(text2, lb_square_to_coordinates[sqt]);
+                char *prostr = pp ? lb_concat("=", pstr[pp]) : " ";
                 char *epstr = ep ? "ep" : " ";
-                text3 = concat(text3, prostr);
-                text3 = concat(text3, epstr);
+                text3 = lb_concat(text3, prostr);
+                text3 = lb_concat(text3, epstr);
                 DrawText(
                     text3,
                     posx + 30,
@@ -10336,11 +10680,11 @@ int main()
                     LIGHTGRAY);
             }
         }
-        // rightboard
+        // right board
         if (rb_count_game_moves[black] > 0)
         {
             char text0[3];
-            intToStr(rb_count_game_moves[black], text0);
+            rb_intToStr(rb_count_game_moves[black], text0);
             int sqf = get_move_source(rb_last_move[black]);
             int sqt = get_move_target(rb_last_move[black]);
             int pic = get_move_piece(rb_last_move[black]);
@@ -10379,8 +10723,8 @@ int main()
             } 
             else if (sqf == sqt) // put_move 
             {
-                char *text1 = concat(pstr[pic], " -->");
-                char *text2 = concat(text1, rb_square_to_coordinates[sqt]);
+                char *text1 = rb_concat(pstr[pic], " -->");
+                char *text2 = rb_concat(text1, rb_square_to_coordinates[sqt]);
                 DrawText(
                     text2,
                     posx + 30,
@@ -10391,13 +10735,13 @@ int main()
             else // normal move
             {
                 char *capstr = cap ? "x" : "-";
-                char *text1 = concat(pstr[pic], rb_square_to_coordinates[sqf]); 
-                char *text2 = concat(text1, capstr);
-                char *text3 = concat(text2, rb_square_to_coordinates[sqt]);
-                char *prostr = pp ? concat("=", pstr[pp]) : " ";
+                char *text1 = rb_concat(pstr[pic], rb_square_to_coordinates[sqf]); 
+                char *text2 = rb_concat(text1, capstr);
+                char *text3 = rb_concat(text2, rb_square_to_coordinates[sqt]);
+                char *prostr = pp ? rb_concat("=", pstr[pp]) : " ";
                 char *epstr = ep ? "ep" : " ";
-                text3 = concat(text3, prostr);
-                text3 = concat(text3, epstr);
+                text3 = rb_concat(text3, prostr);
+                text3 = rb_concat(text3, epstr);
                 DrawText(
                     text3,
                     posx + 30,
@@ -10408,11 +10752,11 @@ int main()
         }
 
         // for white
-        // leftboard
+        // left board
         if (lb_count_game_moves[white] > 0)
         {
             char text0[3];
-            intToStr(lb_count_game_moves[white], text0);
+            lb_intToStr(lb_count_game_moves[white], text0);
             int sqf = get_move_source(lb_last_move[white]);
             int sqt = get_move_target(lb_last_move[white]);
             int pic = get_move_piece(lb_last_move[white]);
@@ -10451,8 +10795,8 @@ int main()
             } 
             else if (sqf == sqt) // put_move 
             {
-                char *text1 = concat(pstr[pic], " -->");
-                char *text2 = concat(text1, lb_square_to_coordinates[sqt]);
+                char *text1 = lb_concat(pstr[pic], " -->");
+                char *text2 = lb_concat(text1, lb_square_to_coordinates[sqt]);
                 DrawText(
                     text2,
                     posx + 30,
@@ -10463,13 +10807,13 @@ int main()
             else
             {
                 char *capstr = cap ? "x" : "-";
-                char *text1 = concat(pstr[pic], lb_square_to_coordinates[sqf]); 
-                char *text2 = concat(text1, capstr);
-                char *text3 = concat(text2, lb_square_to_coordinates[sqt]);
-                char *prostr = pp ? concat("=", pstr[pp]) : " ";
+                char *text1 = lb_concat(pstr[pic], lb_square_to_coordinates[sqf]); 
+                char *text2 = lb_concat(text1, capstr);
+                char *text3 = lb_concat(text2, lb_square_to_coordinates[sqt]);
+                char *prostr = pp ? lb_concat("=", pstr[pp]) : " ";
                 char *epstr = ep ? "ep" : " ";
-                text3 = concat(text3, prostr);
-                text3 = concat(text3, epstr);
+                text3 = lb_concat(text3, prostr);
+                text3 = lb_concat(text3, epstr);
                 DrawText(
                     text3,
                     posx + 30,
@@ -10478,11 +10822,11 @@ int main()
                     WHITE);
             }
         }
-        // rightboard
+        // right board
         if (rb_count_game_moves[white] > 0)
         {
             char text0[3];
-            intToStr(rb_count_game_moves[white], text0);
+            rb_intToStr(rb_count_game_moves[white], text0);
             int sqf = get_move_source(rb_last_move[white]);
             int sqt = get_move_target(rb_last_move[white]);
             int pic = get_move_piece(rb_last_move[white]);
@@ -10521,8 +10865,8 @@ int main()
             } 
             else if (sqf == sqt) // put_move 
             {
-                char *text1 = concat(pstr[pic], " -->");
-                char *text2 = concat(text1, rb_square_to_coordinates[sqt]);
+                char *text1 = rb_concat(pstr[pic], " -->");
+                char *text2 = rb_concat(text1, rb_square_to_coordinates[sqt]);
                 DrawText(
                     text2,
                     posx + 30,
@@ -10533,13 +10877,13 @@ int main()
             else
             {
                 char *capstr = cap ? "x" : "-";
-                char *text1 = concat(pstr[pic], rb_square_to_coordinates[sqf]); 
-                char *text2 = concat(text1, capstr);
-                char *text3 = concat(text2, rb_square_to_coordinates[sqt]);
-                char *prostr = pp ? concat("=", pstr[pp]) : " ";
+                char *text1 = rb_concat(pstr[pic], rb_square_to_coordinates[sqf]); 
+                char *text2 = rb_concat(text1, capstr);
+                char *text3 = rb_concat(text2, rb_square_to_coordinates[sqt]);
+                char *prostr = pp ? rb_concat("=", pstr[pp]) : " ";
                 char *epstr = ep ? "ep" : " ";
-                text3 = concat(text3, prostr);
-                text3 = concat(text3, epstr);
+                text3 = rb_concat(text3, prostr);
+                text3 = rb_concat(text3, epstr);
                 DrawText(
                     text3,
                     posx + 30,
@@ -10765,9 +11109,8 @@ int main()
     // close the raylib window
     CloseWindow();
 
-    // free hash table memory on exit
-    free(lb_hash_table);
-    free(rb_hash_table);
+    // call the exit function to free memory and clean up
+    pfnExit();
 
     return 0;
 }
